@@ -589,6 +589,7 @@ function render() {
         span.appendChild(ws);
       }
       span.onclick = () => select(s, span);
+      if (p.childNodes.length) p.appendChild(document.createTextNode(' '));
       p.appendChild(span);
     }
     if (state.showZh) {
@@ -609,6 +610,7 @@ function wordRow(el, parts, box) {
   el.textContent = '';
   const out = [];
   for (const part of parts) {
+    if (out.length) el.appendChild(document.createTextNode(' '));
     const sid = sidOf(part.id);
     for (const w of part.words) {
       const ws = document.createElement('span');
