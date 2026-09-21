@@ -57,12 +57,13 @@ Each stage reads what the last one wrote and can be rerun without undoing it.
 | 2 | `scripts/build_pack.py` | text → pack JSON + `registry.json` | **run** — 6,434 sentences |
 | 3 | `scripts/translate.py` | fills `translation` (Traditional Chinese, HK) | **chapter 1 only** |
 | 4 | `scripts/build_dict.py` | `public/dict.json` = word → `{ipa, zh}` | **300 commonest words** |
-| 5 | `scripts/narrate.py` | ElevenLabs → `public/audio/{code}.mp3` | **written, never run** |
-| 6 | `scripts/align.py` | forced alignment → sentence and word timings | **written, never run** |
+| 5 | `scripts/narrate.py` | TTS → `public/audio/{code}.mp3` | **chapter 1** — 6:03 |
+| 6 | `scripts/align.py` | forced alignment → sentence and word timings | **chapter 1** — 48/48 |
 
-Stages 5 and 6 are the honest gap: the code is there and it compiles, but
-nothing has been synthesised, so neither has been tested against real audio.
-Assume the first run of each needs debugging. That is the assignment.
+Chapter 1 has been through all six stages and works end to end: tap a sentence,
+hear it, watch the words light up. Chapters 2–31 have text and nothing else —
+finishing them is a matter of running stages 3–6, which is deliberately left as
+the student's first real contact with the pipeline.
 
 ### 1. Extraction
 
@@ -126,12 +127,34 @@ run covers the words the reader actually meets. This stage defaults to
 
 ### 5–6. Narration and alignment
 
+```
+python scripts/narrate.py souls01                      # edge, free
+python scripts/narrate.py --engine sapi souls01        # offline, free
+python scripts/narrate.py --engine elevenlabs souls01  # paid, needs a key
+```
+
+Three engines, because the first question about narration is who pays. The
+default is **edge** — Microsoft's neural voices through the `edge-tts` package,
+free, no account, no key, and good enough that chapter 1 is genuinely listenable.
+`sapi` uses the Windows voices already on the machine: free, offline, audibly
+synthetic, the answer when there is no network. `elevenlabs` is the paid option,
+kept because it is the one that can carry a performance.
+
+Chapter 1 was narrated with `en-US-ChristopherNeural` at `-8%` rate — deep,
+unhurried, and slowed a shade because this is a reading aid, not an audiobook.
+`--voice <id>` takes any voice the chosen engine offers.
+
+**Recording it yourself works too.** Drop an mp3 at `public/audio/{code}.mp3`,
+set each sentence's `src` to that filename, and run `align.py`: forced alignment
+does not care whether a human or a model made the sound.
+
 One mp3 per **chapter**, not per sentence: the reader seeks using the timings,
 and forced alignment is far more stable over one long recording than over 200
-clips. `narrate.py` chunks the chapter under the request character cap, passes
-`previous_text`/`next_text` so the prosody does not restart at every seam, caches
-each chunk under `build_data/tts/` so an interrupted run resumes, and concatenates
-with ffmpeg.
+clips. For the free engines the whole chapter goes in one request, where the
+prosody never restarts; ElevenLabs charges per request and caps the text, so
+there `narrate.py` chunks and passes `previous_text`/`next_text` across the
+seams. Either way each request's mp3 is cached under `build_data/tts/` so an
+interrupted run resumes.
 
 `align.py` then runs torchaudio's `MMS_FA` forced alignment over the chapter's
 own token stream to get measured per-sentence `[start, end]`. Word spans *inside*
@@ -142,7 +165,8 @@ boundaries inside them are smooth. True per-word spans are available in the
 script if you want to try them.
 
 Both need `ffmpeg` and `ffprobe` on PATH. `align.py` needs torch + torchaudio
-(installed on this machine, CUDA build).
+(installed on this machine, CUDA build). On chapter 1 it aligned all 48
+sentences across 0–360s of a 363s recording, on GPU, in well under a minute.
 
 ## The data contract
 
@@ -217,7 +241,6 @@ Ordered roughly by how much a reader would feel it:
 
 ## Honest limitations
 
-* Stages 5 and 6 are untested against real audio (see above).
 * Sentence splitting is regex-based with an abbreviation veto. It is right on
   this book as far as the sentence counts show, but it is not a parser; dialogue
   with nested quotes is where it will break first.
@@ -225,3 +248,7 @@ Ordered roughly by how much a reader would feel it:
   read and rewritten, not preserved.
 * Chapter 8's text-message scene contains images that carry no alt text; they
   appear in the text as `[image]`.
+* Word spans are only as good as the sentence they sit in. A sentence of three
+  words lasting 0.14s (chapter 1's last) is measured correctly but leaves the
+  highlight nothing to do.
+* Only chapter 1 has been through stages 3–6. The other thirty have text.
