@@ -1,3 +1,6 @@
+# The book itself: bring your own copy.
+*.epub
+
 # The novel. This repository is CODE ONLY - the text of a copyrighted book, and
 # anything derived from it (translations, narration, the extracted chapters),
 # stays on the machine that has a legitimate copy of the epub. Anyone cloning

@@ -18,7 +18,11 @@ Two things about this epub that a naive extractor gets wrong:
   also holds alt-less inline images (pictures a character sends), which are not
   letters. Those become "[image]" and are reported on stdout.
 
-    python scripts/extract_chapters.py
+    python scripts/extract_chapters.py                  # build_data/book.epub
+    python scripts/extract_chapters.py path/to/book.epub
+
+Bring your own copy of the book. The epub is gitignored, and so is everything
+extracted from it: this repository holds the code, never the text.
 """
 import re, sys, io, zipfile
 from pathlib import Path
@@ -26,8 +30,7 @@ from bs4 import BeautifulSoup
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 ROOT = Path(__file__).resolve().parents[1]
-EPUB = Path(r'C:\Users\user\OneDrive - Lingnan University\Desktop\teaching\fyps 2026-2027'
-            r'\We Sold Our Souls_ A Novel{Grady Hendrix}(2018, Quirk Books){115498401} libgen.li.epub')
+DEFAULT_EPUB = ROOT / 'build_data' / 'book.epub'
 OUT = ROOT / 'build_data' / 'chapters'
 GAP = '\ufffc'
 
@@ -72,7 +75,11 @@ def chapter(z, cid):
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(EPUB) as z:
+    epub = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_EPUB
+    if not epub.exists():
+        sys.exit(f'no epub at {epub}: put your copy of the book there, '
+                 'or pass its path as an argument')
+    with zipfile.ZipFile(epub) as z:
         for n in range(1, 32):
             title, paras, pictures = chapter(z, f'c{n:02d}')
             if not title or not paras:

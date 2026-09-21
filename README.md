@@ -13,8 +13,8 @@ that every stage has a defined input, a defined output, and a reason for existin
 
 ## Before anything else: the copyright position
 
-The novel is in copyright. This project is built from a single personal copy of
-the EPUB and it stays local:
+The novel is in copyright. Each person running this supplies their own copy
+of the EPUB, and everything built from it stays local:
 
 * `build_data/chapters/*.txt` and the pack JSON contain the full text. **Do not
   publish them, push them to a public repository, or deploy the reader to a
@@ -35,6 +35,19 @@ email to write; forging him is not. For a reader whose purpose is
 intelligibility, a clear professional narrator is in any case the better choice.
 
 ## Running it
+
+Bring your own copy of the EPUB — it is not in this repository and never
+will be. Put it at `build_data/book.epub`, then:
+
+```
+python scripts/extract_chapters.py      # or: ... path/to/your.epub
+python scripts/build_pack.py
+python scripts/translate.py --now souls01
+python scripts/narrate.py souls01
+python scripts/align.py souls01
+```
+
+That is chapter 1, end to end, in a few minutes. Then serve the reader:
 
 ```
 cd public
