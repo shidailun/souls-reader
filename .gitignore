@@ -24,3 +24,7 @@ __pycache__/
 *.pyc
 .venv/
 *.log
+
+# Publishing: the sealed site is rebuilt each time; the password never leaves this machine
+build_data/site/
+build_data/site_secret.json

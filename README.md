@@ -192,6 +192,37 @@ Both need `ffmpeg` and `ffprobe` on PATH. `align.py` needs torch + torchaudio
 (installed on this machine, CUDA build). On chapter 1 it aligned all 48
 sentences across 0–360s of a 363s recording, on GPU, in well under a minute.
 
+## Publishing, and updating the audio
+
+The student reads at **https://shidailun.github.io/souls-reader/**, behind a
+password. The page itself is public, but everything it shows is encrypted:
+`scripts/publish.py` seals each chapter pack, the dictionary, the cover and the
+narration with AES-256-GCM, using a key derived from the password
+(PBKDF2-SHA256, 600k rounds). Only the ciphertext is pushed to the `gh-pages`
+branch. The reader asks for the password once, and can remember the key on her
+device.
+
+```
+python scripts/publish.py                  # encrypt everything and deploy
+python scripts/publish.py --show-password  # what to tell her
+python scripts/publish.py --new-password   # rotate; she needs the new one
+python scripts/publish.py --dry-run        # build build_data/site/ only
+```
+
+The password and salt are kept in `build_data/site_secret.json`. That file is
+gitignored: never commit it, and never paste the password anywhere public.
+
+**To update the audio:**
+1. Replace `public/audio/soulsNN.mp3`, or rerun `narrate.py soulsNN`.
+2. Run `align.py soulsNN`, then `segment.py soulsNN`, so the timings match the new file.
+3. Run `publish.py`.
+
+The same steps apply after any change to translations or the dictionary. The
+salt does not change between publishes, so her remembered key keeps working.
+
+**Review:** tapping a word puts it in her Review deck (germanic's SRS, simplified
+SM-2). The deck is stored in her browser, so it stays on the device she uses.
+
 ## The data contract
 
 Every chapter is one JSON file, in the exact shape `germanic-literature` already

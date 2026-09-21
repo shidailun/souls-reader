@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>We Sold Our Souls · Reader</title>
+<title>Souls Reader</title>
 <!-- Guitar icon, drawn here rather than shipped as a file so the reader stays
      one file the student can open, edit and hand around. -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%23e8503a' d='M40 6l6 6-8 8 4 4-9 9a13 13 0 11-6-6l9-9-4-4 8-8zM22 38a7 7 0 100 14 7 7 0 000-14zm0 4a3 3 0 110 6 3 3 0 010-6z'/%3E%3C/svg%3E">
@@ -25,7 +25,7 @@
   .wrap{max-width:46rem;margin:0 auto;padding:0 16px}
 
   /* ---------- library ---------- */
-  #library{display:block}
+  #library{display:none}
   .hero{position:relative;padding:40px 0 28px;display:flex;gap:28px;align-items:flex-start}
   .hero img{
     width:210px;flex:0 0 210px;border-radius:4px;display:block;
@@ -120,6 +120,53 @@
     border:1px solid var(--line);border-radius:3px;font:inherit;font-size:.8rem;padding:3px 5px}
   .ctl label{color:var(--dim);font-size:.75rem;display:flex;align-items:center;gap:6px}
 
+  /* ---------- lock ---------- */
+  #lock{display:none}
+  #lock form{max-width:22rem;margin:18vh auto 0;display:flex;flex-direction:column;gap:12px}
+  #lock h1{font-size:1.5rem;margin:0}
+  #lock p{color:var(--dim);font-size:.9rem;line-height:1.5;margin:0}
+  #lock input[type=password]{background:var(--panel);color:var(--ink);border:1px solid var(--line);
+    border-radius:4px;font:inherit;font-size:1.1rem;padding:10px 12px;letter-spacing:.08em}
+  #lock label{color:var(--dim);font-size:.85rem;display:flex;gap:8px;align-items:center}
+  #lock .go{padding:10px;font-size:1rem;color:var(--ink);border-color:var(--hot)}
+  #lockmsg{min-height:1.4em;color:var(--hot)!important}
+  .libbar{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}
+  .libbar .btn{font-size:.9rem;padding:8px 14px}
+  #revbtn{color:var(--ink);border-color:var(--hot)}
+
+  /* ---------- vocabulary / review ---------- */
+  .w.lrn{text-decoration:underline dotted var(--hot);text-underline-offset:.2em}
+  .gact{display:flex;gap:10px;align-items:center;margin-top:8px}
+  .gnote{color:var(--dim);font-size:.8rem}
+  #review{display:none;padding-bottom:40px}
+  .rtop{display:flex;align-items:center;justify-content:space-between;padding:16px 0}
+  .rtop span{color:var(--dim);font-size:.85rem}
+  .rcard{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:26px 20px;
+    text-align:center;touch-action:pan-x}
+  .rword{font-size:2.3rem;margin:.2em 0 .3em;word-break:break-word}
+  .rword.zh,.rzh{font-family:var(--han);color:var(--zh)}
+  .rword.zh{font-size:1.9rem}
+  .rzh{font-size:1.6rem;margin:.2em 0}
+  #rword2{font-size:1.9rem;margin:.1em 0}
+  .ripa{color:var(--dim);font-size:1.05rem}
+  #ranswer{display:none;border-top:1px solid var(--line);margin-top:14px;padding-top:14px}
+  .rex{text-align:left;margin-top:18px}
+  .rex .en{font-size:1.05rem;line-height:1.6;margin:0 0 .4em}
+  .rex .en .w{cursor:pointer;border-radius:2px}
+  .rex .w.hit{background:#3a2019;color:var(--ink)}
+  .rex .w.on{color:var(--hot)}
+  .rex .zh{font-family:var(--han);color:var(--zh);font-size:1.05rem;line-height:1.7;margin:0}
+  .rrow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+  #ractions{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px}
+  .ract{font:inherit;font-size:.95rem;border-radius:5px;padding:12px 4px;cursor:pointer;
+    border:1px solid var(--line);background:var(--panel);color:var(--ink);line-height:1.2}
+  .ract span{display:block;color:var(--dim);font-size:.72rem;margin-top:3px}
+  .ract.show{grid-column:1 / -1;border-color:var(--hot)}
+  .ract.again{border-color:#6b2a22}.ract.hard{border-color:#6b5222}
+  .ract.good{border-color:#265a3a}.ract.easy{border-color:#24506b}
+  #rdone{display:none;text-align:center;padding:60px 0}
+  #rdone p{color:var(--dim)}
+
   @media (max-width:640px){
     .hero{flex-direction:column;gap:18px;padding-top:26px}
     .hero img{width:56%;max-width:210px;flex:none}
@@ -129,6 +176,19 @@
 </head>
 <body>
 
+<div id="lock">
+  <div class="wrap">
+    <form id="lockf" autocomplete="off">
+      <h1>Souls Reader</h1>
+      <p>This reader is private. Enter the password you were given.</p>
+      <input type="password" id="pw" autocomplete="current-password" aria-label="Password">
+      <label><input type="checkbox" id="remember" checked> Remember on this device</label>
+      <button class="btn go" type="submit">Open</button>
+      <p id="lockmsg"></p>
+    </form>
+  </div>
+</div>
+
 <div id="library">
   <div class="wrap">
     <div class="brand">
@@ -136,7 +196,7 @@
       <span>Souls Reader</span>
     </div>
     <div class="hero">
-      <img id="cover" src="cover.jpg" alt="Cover of We Sold Our Souls">
+      <img id="cover" alt="">
       <div>
         <h1 id="btitle">&nbsp;</h1>
         <p class="zh" id="bzh"></p>
@@ -149,6 +209,10 @@
         </p>
       </div>
     </div>
+    <div class="libbar">
+      <button class="btn" id="revbtn">Review</button>
+      <button class="btn" id="lockbtn" hidden>Lock</button>
+    </div>
     <ul class="chapters" id="chapters"></ul>
   </div>
 </div>
@@ -157,6 +221,7 @@
   <div class="wrap">
     <button class="btn" id="back">&larr; Chapters</button>
     <span class="ttl" id="bartitle"></span>
+    <button class="btn" id="torev" title="Review the words you tapped">Review</button>
     <button class="btn" id="tzh" title="Show the Chinese under every paragraph">中</button>
     <button class="btn" id="smaller">A&minus;</button>
     <button class="btn" id="bigger">A+</button>
@@ -213,6 +278,42 @@
   </div>
 </div>
 
+<div id="review">
+  <div class="wrap">
+    <div class="rtop">
+      <button class="btn" id="rback">&larr; Back</button>
+      <span id="rcount"></span>
+    </div>
+    <div id="rbody">
+      <div class="rcard">
+        <div class="rword" id="rfront"></div>
+        <div id="ranswer">
+          <div id="rword2"></div>
+          <div class="ripa" id="ripa"></div>
+          <div class="rzh" id="rzh"></div>
+        </div>
+        <div class="rrow">
+          <button class="btn" id="rplayw">&#9654; Word</button>
+          <button class="btn" id="rplay">&#9654; Sentence</button>
+          <button class="btn" id="rjump">Go to story &nearr;</button>
+        </div>
+        <div class="rex">
+          <p class="en" id="rexen"></p>
+          <p class="zh" id="rexzh"></p>
+          <div class="gloss" id="rgloss"></div>
+        </div>
+      </div>
+      <div id="ractions"></div>
+      <p style="color:var(--dim);font-size:.75rem;text-align:center;margin-top:12px">
+        Space: show answer &middot; 1&ndash;4: grade</p>
+    </div>
+    <div id="rdone">
+      <h2 id="rdonemsg"></h2>
+      <p id="rdonesub"></p>
+    </div>
+  </div>
+</div>
+
 <audio id="au" preload="none"></audio>
 
 <script>
@@ -225,11 +326,16 @@
 //
 // Four views, as in germanic-literature: Segment, Sentence and Paragraph step
 // through the chapter one unit at a time; Chapter is the continuous text.
-// Switching view keeps your place, anchored on a sentence id.
+// Switching view keeps your place, anchored on a sentence id. Tapped words go
+// into Review, a spaced-repetition deck (germanic's SRSReview, in miniature).
+//
+// Published copies are SEALED (scripts/publish.py): every data file is
+// AES-GCM encrypted under a key derived from a password, and the page asks for
+// it. Run locally, there is no sealed.json and the files are read as they are.
 // ---------------------------------------------------------------------------
 const $ = s => document.querySelector(s);
 const MODES = ['segment', 'sentence', 'paragraph', 'story'];
-const state = {reg:null, dict:null, pack:null, idx:0, sent:null, showZh:false,
+const state = {reg:null, dict:null, pack:null, packs:{}, idx:0, sent:null, showZh:false,
                mode:'sentence', units:null, pos:0, anchor:null, stepZh:true, rate:1};
 
 const LS = {
@@ -243,19 +349,98 @@ const LS = {
 // the book title everywhere already, so only the part after the dot is wanted.
 const shortTitle = t => t.includes(' · ') ? t.split(' · ').pop() : t;
 
+function screen(name) {
+  for (const s of ['lock', 'library', 'reader', 'review'])
+    $('#' + s).style.display = s === name ? 'block' : 'none';
+  $('#bar').style.display = name === 'reader' ? 'block' : 'none';
+}
+
+// ---------------------------------------------------------------------------
+// Data. getBytes('texts/souls01.json') is the only way anything is read: plain
+// fetch locally, fetch + decrypt when the site is sealed. File layout on a
+// sealed site: data/<path>.bin = 12-byte nonce | AES-GCM ciphertext+tag.
+// ---------------------------------------------------------------------------
+const vault = {key: null, meta: null};
+const b64 = {
+  enc: buf => { let s = ''; new Uint8Array(buf).forEach(c => s += String.fromCharCode(c)); return btoa(s); },
+  dec: s => Uint8Array.from(atob(s), c => c.charCodeAt(0)),
+};
+
+async function unseal(key, buf) {
+  const b = new Uint8Array(buf);
+  return crypto.subtle.decrypt({name: 'AES-GCM', iv: b.slice(0, 12)}, key, b.slice(12));
+}
+
+async function deriveKey(pw, meta) {
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw),
+                                             'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name: 'PBKDF2', salt: b64.dec(meta.salt), iterations: meta.iter, hash: 'SHA-256'},
+    base, {name: 'AES-GCM', length: 256}, true, ['decrypt']);
+}
+
+// A key is right if it opens the check blob; AES-GCM refuses anything else.
+const tryKey = key => unseal(key, b64.dec(vault.meta.check)).then(() => true, () => false);
+
+async function getBytes(path) {
+  const r = await fetch(vault.key ? 'data/' + path + '.bin' : path);
+  if (!r.ok) throw new Error(path + ': ' + r.status);
+  const buf = await r.arrayBuffer();
+  return vault.key ? unseal(vault.key, buf) : buf;
+}
+const getJSON = async path => JSON.parse(new TextDecoder().decode(await getBytes(path)));
+const getBlobUrl = async (path, type) =>
+  URL.createObjectURL(new Blob([await getBytes(path)], {type}));
+
+async function start() {
+  try {
+    const r = await fetch('sealed.json', {cache: 'no-store'});
+    vault.meta = r.ok ? await r.json() : null;
+  } catch (e) { vault.meta = null; }
+  if (!vault.meta) return boot();
+
+  const saved = LS.get('key', null);
+  if (saved) {
+    try {
+      const key = await crypto.subtle.importKey('raw', b64.dec(saved), 'AES-GCM', true, ['decrypt']);
+      if (await tryKey(key)) { vault.key = key; return boot(); }
+    } catch (e) {}
+    LS.set('key', null);           // the password changed, or the key is damaged
+  }
+  screen('lock');
+  $('#pw').focus();
+}
+
+$('#lockf').onsubmit = async e => {
+  e.preventDefault();
+  const msg = $('#lockmsg');
+  msg.textContent = 'Opening…';
+  const key = await deriveKey($('#pw').value.trim(), vault.meta);
+  if (!(await tryKey(key))) { msg.textContent = 'That password is not right.'; return; }
+  vault.key = key;
+  if ($('#remember').checked) LS.set('key', b64.enc(await crypto.subtle.exportKey('raw', key)));
+  msg.textContent = '';
+  $('#pw').value = '';
+  boot().catch(fail);
+};
+
+$('#lockbtn').onclick = () => { LS.set('key', null); location.reload(); };
+
 async function boot() {
-  state.reg = await (await fetch('texts/registry.json')).json();
+  state.reg = await getJSON('texts/registry.json');
   // The dictionary is a later pipeline stage; the reader must work without it.
-  try { state.dict = await (await fetch('dict.json')).json(); } catch (e) { state.dict = null; }
+  try { state.dict = await getJSON('dict.json'); } catch (e) { state.dict = null; }
 
   const work = state.reg.works[0];
   $('#btitle').textContent = work.title;
   $('#bzh').textContent = work.zh || '';
   $('#bby').textContent = work.author;
-  if (work.cover) $('#cover').src = work.cover;
+  getBlobUrl(work.cover || 'cover.jpg', 'image/jpeg').then(u => $('#cover').src = u, () => {});
   document.title = work.title + ' · Reader';
+  $('#lockbtn').hidden = !vault.key;
 
   const ul = $('#chapters');
+  ul.textContent = '';
   state.reg.chapters.forEach((c, i) => {
     const li = document.createElement('li');
     const b = document.createElement('button');
@@ -279,8 +464,16 @@ async function boot() {
   const m = LS.get('mode', 'sentence');
   state.mode = MODES.includes(m) ? m : 'sentence';
 
+  screen('library');
+  updateDue();
   const last = LS.get('last', null);
   if (last !== null && state.reg.chapters[last]) open(last);
+}
+
+async function getPack(code) {
+  if (!state.packs[code]) state.packs[code] = getJSON(`texts/${code}.json`)
+    .catch(e => { delete state.packs[code]; throw e; });
+  return state.packs[code];
 }
 
 // ---------------------------------------------------------------------------
@@ -311,6 +504,7 @@ function buildUnits(pack) {
 
 const unitsNow = () => state.units[state.mode] || [];
 const firstSid = () => state.pack.paragraphs[0]?.sentences[0]?.id || null;
+const sidOf = id => id.replace(/g\d+$/, '');     // a segment id -> its sentence id
 
 function setAnchor(sid) {
   if (!sid) return;
@@ -325,7 +519,7 @@ async function open(i) {
   if (!c) return;
   stop();
   state.idx = i;
-  state.pack = await (await fetch(`texts/${c.id}.json`)).json();
+  state.pack = await getPack(c.id);
   state.units = buildUnits(state.pack);
   state.anchor = LS.get('pos', {})[state.pack.id] || firstSid();
   LS.set('last', i);
@@ -334,9 +528,7 @@ async function open(i) {
   $('#ctitle').textContent = shortTitle(state.pack.title);
   $('#czh').textContent = state.pack.titleTranslation || '';
   $('#bartitle').textContent = shortTitle(state.pack.title);
-  $('#library').style.display = 'none';
-  $('#reader').style.display = 'block';
-  $('#bar').style.display = 'block';
+  screen('reader');
   $('#prev').disabled = i === 0;
   $('#next').disabled = i === state.reg.chapters.length - 1;
   render();
@@ -392,7 +584,7 @@ function render() {
       // highlight; the trailing space lives inside the span, as in the pack.
       for (const w of s.words) {
         const ws = document.createElement('span');
-        ws.className = 'w';
+        ws.className = 'w' + (isLearning(w.text) ? ' lrn' : '');
         ws.textContent = w.text;
         span.appendChild(ws);
       }
@@ -412,16 +604,22 @@ function render() {
 }
 
 // Words as tappable spans; returns the spans so playback can light them up.
-function wordRow(el, words, box) {
+// Each word knows its sentence, so a tap can file the word with its context.
+function wordRow(el, parts, box) {
   el.textContent = '';
-  return words.map(w => {
-    const ws = document.createElement('span');
-    ws.className = 'w';
-    ws.textContent = w.text;
-    ws.onclick = () => glossFor(w.text, box);
-    el.appendChild(ws);
-    return ws;
-  });
+  const out = [];
+  for (const part of parts) {
+    const sid = sidOf(part.id);
+    for (const w of part.words) {
+      const ws = document.createElement('span');
+      ws.className = 'w' + (isLearning(w.text) ? ' lrn' : '');
+      ws.textContent = w.text;
+      ws.onclick = () => glossFor(w.text, box, {code: state.pack.id, sid}, ws);
+      el.appendChild(ws);
+      out.push(ws);
+    }
+  }
+  return out;
 }
 
 function select(s, span) {
@@ -429,7 +627,7 @@ function select(s, span) {
   document.querySelectorAll('.sent.sel').forEach(e => e.classList.remove('sel'));
   span.classList.add('sel');
   setAnchor(s.id);
-  state.sent = {data: s, el: span, els: wordRow($('#sen'), s.words, $('#gloss'))};
+  state.sent = {data: s, el: span, els: wordRow($('#sen'), [s], $('#gloss'))};
 
   const zh = $('#szh');
   if (s.translation) { zh.textContent = s.translation; zh.classList.remove('untranslated'); }
@@ -469,7 +667,7 @@ function goTo(i, autoplay = true) {
   const u = us[i];
   setAnchor(u.sentenceId);
 
-  state.stepEls = wordRow($('#sten'), u.parts.flatMap(p => p.words), $('#sgloss'));
+  state.stepEls = wordRow($('#sten'), u.parts, $('#sgloss'));
   const zh = $('#stzh');
   zh.style.display = state.stepZh ? '' : 'none';
   zh.textContent = u.translation || 'Not translated yet.';
@@ -498,11 +696,13 @@ function playUnit() {
 // punctuation and spacing of the running text. A miss tries the obvious
 // inflections before giving up.
 // ---------------------------------------------------------------------------
+const clean = raw => raw.toLowerCase().replace(/[^a-z'’-]/g, '').replace(/^[-'’]+|[-'’]+$/g, '');
+
 function lookup(key) {
   const d = state.dict;
-  if (!d) return null;
+  if (!d || !key) return null;
   if (d[key]) return [key, d[key]];
-  const tries = [key.replace(/['’]s$/, ''), key.replace(/['’]$/, ''),
+  const tries = [key.replace(/['’]s$/, ''),
                  key.replace(/ies$/, 'y'), key.replace(/es$/, ''), key.replace(/s$/, ''),
                  key.replace(/ied$/, 'y'), key.replace(/ed$/, ''), key.replace(/d$/, ''),
                  key.replace(/ing$/, ''), key.replace(/ing$/, 'e'),
@@ -510,9 +710,11 @@ function lookup(key) {
   for (const k of tries) if (k !== key && d[k]) return [k, d[k]];
   return null;
 }
+// The headword a token files under: "hunched" -> "hunched", "Guitars," -> "guitar".
+const headword = raw => { const k = clean(raw); const h = lookup(k); return h ? h[0] : k; };
 
-function glossFor(raw, box) {
-  const key = raw.toLowerCase().replace(/[^a-z'’-]/g, '').replace(/^[-'’]+|-+$/g, '');
+function glossFor(raw, box, loc, el) {
+  const key = clean(raw);
   if (!key) { box.style.display = 'none'; return; }
   box.style.display = 'block';
   const hit = lookup(key);
@@ -523,27 +725,279 @@ function glossFor(raw, box) {
     return;
   }
   const [k, e] = hit;
+  // A tap is the truest signal a word is hard: it goes into Review unless she
+  // has said she knows it.
+  const card = vocab.get(k);
+  if (!card.status) vocab.put(k, {status: 'learning', loc, added: new Date().toISOString()});
   box.innerHTML = `<b>${k}</b><span class="ipa">${e.ipa ? '/' + e.ipa + '/' : ''}</span>`
-                + `<span class="zh">${e.zh || ''}</span>`;
+                + `<span class="zh">${e.zh || ''}</span><span class="gact"></span>`;
+  const act = box.querySelector('.gact');
+  const draw = () => {
+    const st = vocab.get(k).status;
+    act.innerHTML = st === 'learning'
+      ? '<span class="gnote">In Review ✓</span> <button class="btn">I know this word</button>'
+      : '<span class="gnote">Known</span> <button class="btn">Put it back in Review</button>';
+    act.querySelector('button').onclick = () => {
+      vocab.put(k, st === 'learning' ? {status: 'known'} : {status: 'learning', loc});
+      markLearning();
+      draw();
+    };
+  };
+  draw();
+  markLearning();
+}
+
+// Re-mark every visible word after the deck changes.
+function markLearning() {
+  document.querySelectorAll('#body .w, #sten .w, #sen .w').forEach(e =>
+    e.classList.toggle('lrn', isLearning(e.textContent)));
+  updateDue();
 }
 
 // ---------------------------------------------------------------------------
+// Vocabulary and Review. The deck lives in this browser (localStorage), keyed
+// by headword: {status: learning|known, loc: {code, sid}, ...scheduling}.
+// Scheduler: germanic's utils/anki.js - simplified SM-2 with learning steps.
+// ---------------------------------------------------------------------------
+const vocab = {
+  all: () => LS.get('vocab', {}),
+  get: k => vocab.all()[k] || {},
+  put: (k, patch) => { const v = vocab.all(); v[k] = {...v[k], ...patch}; LS.set('vocab', v); },
+};
+const isLearning = raw => { const k = headword(raw); return !!k && vocab.get(k).status === 'learning'; };
+
+const SRS = {NEW: [1, 10], RELEARN: [10], GRAD: 1, EASY: 4, MIN_EASE: 1.3, HARD: 1.2, BONUS: 1.3};
+
+function srsStep(card, grade) {
+  let ease = card.ease ?? 2.5, interval = card.interval ?? 0, reps = card.reps ?? 0,
+      lapses = card.lapses ?? 0, st = card.state ?? 'new', s = card.step ?? 0, mins;
+  if (st === 'new' || st === 'learning') {
+    const steps = SRS.NEW;
+    if (grade === 'again') { st = 'learning'; s = 0; mins = steps[0]; }
+    else if (grade === 'hard') {
+      st = 'learning';
+      const cur = steps[Math.min(s, steps.length - 1)];
+      mins = cur <= steps[0] ? Math.round((steps[0] + steps[1]) / 2) : cur;
+    } else if (grade === 'good') {
+      s += 1;
+      if (s >= steps.length) { st = 'review'; interval = SRS.GRAD; mins = SRS.GRAD * 1440; }
+      else { st = 'learning'; mins = steps[s]; }
+    } else { st = 'review'; interval = SRS.EASY; mins = SRS.EASY * 1440; }
+  } else if (st === 'relearning') {
+    if (grade === 'again') { s = 0; mins = SRS.RELEARN[0]; }
+    else if (grade === 'hard') mins = Math.round(SRS.RELEARN[0] * 1.5);
+    else if (grade === 'good') { st = 'review'; interval = Math.max(1, Math.round(interval)); mins = interval * 1440; }
+    else { st = 'review'; interval = Math.max(SRS.EASY, Math.round(interval) + SRS.EASY - 1); mins = interval * 1440; }
+  } else {
+    if (grade === 'again') {
+      lapses += 1; ease = Math.max(SRS.MIN_EASE, ease - 0.2);
+      st = 'relearning'; s = 0; interval = 1; mins = SRS.RELEARN[0];
+    } else {
+      // strictly increasing, so Hard < Good < Easy even at tiny intervals
+      const base = Math.max(1, interval);
+      const hard = Math.max(base + 1, Math.round(base * SRS.HARD));
+      const good = Math.max(hard + 1, Math.round(base * ease));
+      const easy = Math.max(good + 1, Math.round(base * ease * SRS.BONUS));
+      if (grade === 'hard') { ease = Math.max(SRS.MIN_EASE, ease - 0.15); interval = hard; }
+      else if (grade === 'good') interval = good;
+      else { ease += 0.15; interval = easy; }
+      mins = interval * 1440;
+    }
+    reps += 1;
+  }
+  return {mins, ease: Math.round(ease * 100) / 100, interval, state: st, step: s, reps, lapses};
+}
+
+function fmtMins(m) {
+  if (m < 60) return Math.max(1, Math.round(m)) + 'm';
+  if (m < 1440) return Math.round(m / 60) + 'h';
+  const d = Math.round(m / 1440);
+  return d < 30 ? d + 'd' : d < 365 ? Math.round(d / 30) + 'mo' : (d / 365).toFixed(1) + 'y';
+}
+
+const isDue = c => c.status === 'learning' && (!c.due || new Date(c.due) <= new Date());
+const dueWords = () => Object.entries(vocab.all()).filter(([, c]) => isDue(c)).map(([w]) => w);
+
+function updateDue() {
+  const n = dueWords().length;
+  const total = Object.values(vocab.all()).filter(c => c.status === 'learning').length;
+  $('#revbtn').textContent = n ? `Review · ${n} due` : `Review${total ? ' · ' + total + ' words' : ''}`;
+  $('#torev').textContent = n ? `Review ${n}` : 'Review';
+}
+
+const GRADES = [['again', 'Forgot'], ['hard', 'Hard'], ['good', 'Good'], ['easy', 'Easy']];
+const rv = {queue: [], i: 0, shown: false, ex: null, from: 'library'};
+
+function openReview() {
+  stop();
+  closeSheet();
+  rv.from = $('#reader').style.display === 'block' ? 'reader' : 'library';
+  // Both ways round, as germanic does: English -> Chinese, then Chinese -> English.
+  const due = dueWords();
+  rv.queue = [...due.map(w => ({w, dir: 'en'})), ...due.map(w => ({w, dir: 'zh'}))];
+  rv.i = 0;
+  screen('review');
+  window.scrollTo(0, 0);
+  showCard();
+}
+
+async function findExample(word, loc) {
+  const hit = w => headword(w.text) === word;
+  if (loc && loc.code) {
+    const pack = await getPack(loc.code).catch(() => null);
+    const s = pack && pack.paragraphs.flatMap(p => p.sentences).find(s => s.id === loc.sid);
+    if (s && s.words.some(hit)) return {code: loc.code, s};
+  }
+  for (const c of state.reg.chapters) {        // no place on file: first occurrence
+    const pack = await getPack(c.id).catch(() => null);
+    const s = pack && pack.paragraphs.flatMap(p => p.sentences).find(s => s.words.some(hit));
+    if (s) return {code: c.id, s};
+  }
+  return null;
+}
+
+async function showCard() {
+  stop();
+  const card = rv.queue[rv.i];
+  rv.shown = false;
+  rv.ex = null;
+  $('#rcount').textContent = card ? `${rv.queue.length - rv.i} left` : '';
+  $('#rbody').style.display = card ? 'block' : 'none';
+  $('#rdone').style.display = card ? 'none' : 'block';
+  if (!card) {
+    const total = Object.values(vocab.all()).filter(c => c.status === 'learning').length;
+    $('#rdonemsg').textContent = rv.queue.length ? 'Session complete ✨'
+      : total ? 'No words due — come back later.' : 'No words yet.';
+    $('#rdonesub').textContent = total ? `${total} words in Review.`
+      : 'Tap any word while reading: it goes into Review, and comes back here on a schedule.';
+    updateDue();
+    return;
+  }
+  const e = (state.dict && state.dict[card.w]) || {};
+  $('#rfront').textContent = card.dir === 'en' ? card.w : (e.zh || '…');
+  $('#rfront').className = 'rword' + (card.dir === 'zh' ? ' zh' : '');
+  $('#ranswer').style.display = 'none';
+  $('#rexen').textContent = '';
+  $('#rplay').style.display = 'none';
+  drawActions();
+
+  const ex = await findExample(card.w, vocab.get(card.w).loc);
+  if (rv.queue[rv.i] !== card) return;           // she moved on while it loaded
+  rv.ex = ex;
+  if (ex) {
+    rv.exEls = wordRow($('#rexen'), [ex.s], $('#rgloss'));
+    rv.exEls.forEach((el, i) => el.classList.toggle('hit', headword(ex.s.words[i].text) === card.w));
+    // wordRow filed taps under the open chapter; here they belong to the example's.
+    rv.exEls.forEach((el, i) => el.onclick = () =>
+      glossFor(ex.s.words[i].text, $('#rgloss'), {code: ex.code, sid: ex.s.id}, el));
+    $('#rexzh').textContent = ex.s.translation || '';
+    $('#rplay').style.display = ex.s.src || ex.s.audio ? '' : 'none';
+  }
+  // English -> Chinese: hear it on the front. Chinese -> English: only after
+  // the reveal, or the audio gives the answer away.
+  if (card.dir === 'en') playWord();
+}
+
+function reveal() {
+  const card = rv.queue[rv.i];
+  if (!card || rv.shown) return;
+  rv.shown = true;
+  const e = (state.dict && state.dict[card.w]) || {};
+  $('#rword2').textContent = card.dir === 'zh' ? card.w : '';
+  $('#ripa').textContent = e.ipa ? '/' + e.ipa + '/' : '';
+  $('#rzh').textContent = card.dir === 'en' ? (e.zh || '') : '';
+  $('#rgloss').style.display = 'none';
+  $('#ranswer').style.display = 'block';
+  drawActions();
+  if (card.dir === 'zh') playWord();
+}
+
+function drawActions() {
+  const box = $('#ractions');
+  box.textContent = '';
+  const card = rv.queue[rv.i];
+  if (!card) return;
+  if (!rv.shown) {
+    const b = document.createElement('button');
+    b.className = 'ract show';
+    b.textContent = 'Show answer';
+    b.onclick = reveal;
+    box.appendChild(b);
+    return;
+  }
+  const c = vocab.get(card.w);
+  GRADES.forEach(([g, label], n) => {
+    const b = document.createElement('button');
+    b.className = 'ract ' + g;
+    b.innerHTML = `${label}<span>${fmtMins(srsStep(c, g).mins)}</span>`;
+    b.title = `${label} (${n + 1})`;
+    b.onclick = () => grade(g);
+    box.appendChild(b);
+  });
+}
+
+function grade(g) {
+  const card = rv.queue[rv.i];
+  if (!card || !rv.shown) return;
+  const r = srsStep(vocab.get(card.w), g);
+  const due = new Date(Date.now() + r.mins * 60000);
+  vocab.put(card.w, {ease: r.ease, interval: r.interval, reps: r.reps, lapses: r.lapses,
+                     state: r.state, step: r.step, due: due.toISOString(),
+                     lastReviewed: new Date().toISOString()});
+  // Forgot puts the card back into this session; anything else waits its turn.
+  if (g === 'again') rv.queue.push(card);
+  rv.i += 1;
+  showCard();
+}
+
+// The word itself, cut out of the narration. Word spans inside a sentence are
+// estimates (see align.py), so the clip gets a little air either side.
+function playWord() {
+  const ex = rv.ex, card = rv.queue[rv.i];
+  if (!ex || !(ex.s.src || ex.s.audio)) return;
+  const i = ex.s.words.findIndex(w => headword(w.text) === card.w);
+  const w = ex.s.words[i];
+  if (!w || w.start == null) return;
+  playParts([{...ex.s, start: Math.max(0, w.start - 0.08), end: w.end + 0.12, words: [w]}],
+            [rv.exEls[i]]);
+}
+
+$('#rplayw').onclick = playWord;
+$('#rplay').onclick = () => rv.ex && playParts([rv.ex.s], rv.exEls);
+$('#rjump').onclick = () => {
+  const ex = rv.ex;
+  if (!ex) return;
+  const pos = LS.get('pos', {});
+  pos[ex.code] = ex.s.id;
+  LS.set('pos', pos);
+  open(state.reg.chapters.findIndex(c => c.id === ex.code));
+};
+$('#rback').onclick = () => {
+  stop();
+  if (rv.from === 'reader' && state.pack) { screen('reader'); render(); setMode(state.mode, true); }
+  else screen('library');
+  updateDue();
+};
+$('#revbtn').onclick = openReview;
+$('#torev').onclick = openReview;
+
+// ---------------------------------------------------------------------------
 // Audio. One mp3 per chapter; a unit plays exactly its own [start, end] and
-// stops. The file is fetched once as a blob: `python -m http.server` does not
+// stops. The file is loaded once as a blob: `python -m http.server` does not
 // answer Range requests, so a plain URL cannot seek and every play would start
-// at 0:00. A blob seeks anywhere, whatever serves it.
+// at 0:00 - and a sealed file has to be decrypted whole anyway. A blob seeks
+// anywhere, whatever serves it.
 // ---------------------------------------------------------------------------
 const au = $('#au');
 const blobs = {};
 let raf = 0, clip = null, token = 0;
 
 function audioUrl(src) {
-  const url = /^https?:|^\//.test(src) ? src : 'audio/' + src;
-  if (!blobs[url]) blobs[url] = fetch(url)
-    .then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); })
-    .then(b => URL.createObjectURL(b))
-    .catch(e => { delete blobs[url]; throw e; });
-  return blobs[url];
+  if (/^https?:/.test(src)) return Promise.resolve(src);
+  const path = 'audio/' + src.replace(/^\/?audio\//, '');
+  if (!blobs[path]) blobs[path] = getBlobUrl(path, 'audio/mpeg')
+    .catch(e => { delete blobs[path]; throw e; });
+  return blobs[path];
 }
 
 async function load(src) {
@@ -656,24 +1110,29 @@ $('#speed').oninput = e => {
 document.querySelectorAll('#modes .btn').forEach(b =>
   b.onclick = () => { if (b.dataset.mode !== state.mode) setMode(b.dataset.mode); });
 
-// Swipe between units, as on a phone.
-let touch = null;
-$('#step').addEventListener('touchstart', e => {
-  const t = e.changedTouches[0]; touch = {x: t.clientX, y: t.clientY};
-}, {passive: true});
-$('#step').addEventListener('touchend', e => {
-  if (!touch) return;
-  const t = e.changedTouches[0], dx = t.clientX - touch.x, dy = t.clientY - touch.y;
-  touch = null;
+// Swipe between units, as on a phone; swipe up on a review card to reveal it.
+function swipe(el, fn) {
+  let t0 = null;
+  el.addEventListener('touchstart', e => {
+    const t = e.changedTouches[0]; t0 = {x: t.clientX, y: t.clientY};
+  }, {passive: true});
+  el.addEventListener('touchend', e => {
+    if (!t0) return;
+    const t = e.changedTouches[0];
+    fn(t.clientX - t0.x, t.clientY - t0.y);
+    t0 = null;
+  }, {passive: true});
+}
+swipe($('#step'), (dx, dy) => {
   if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) goTo(state.pos + (dx < 0 ? 1 : -1));
-}, {passive: true});
+});
+swipe($('#rbody'), (dx, dy) => { if (dy < -50 && Math.abs(dy) > Math.abs(dx) * 1.5) reveal(); });
 
 $('#back').onclick = () => {
   closeSheet();
   stop();
-  $('#library').style.display = 'block';
-  $('#reader').style.display = 'none';
-  $('#bar').style.display = 'none';
+  screen('library');
+  updateDue();
 };
 $('#prev').onclick = () => open(state.idx - 1);
 $('#next').onclick = () => open(state.idx + 1);
@@ -692,9 +1151,15 @@ function resize(d) {
 $('#bigger').onclick = () => resize(1);
 $('#smaller').onclick = () => resize(-1);
 document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' && e.target.type !== 'range') return;
   if (e.key === 'Escape') closeSheet();
+  if ($('#review').style.display === 'block') {
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!rv.shown) reveal(); }
+    const n = '1234'.indexOf(e.key);
+    if (n >= 0) grade(GRADES[n][0]);
+    return;
+  }
   if ($('#reader').style.display !== 'block') return;
-  if (e.target.tagName === 'INPUT' && e.target.type === 'number') return;
   const step = state.mode !== 'story';
   if (e.key === ' ') {
     e.preventDefault();
@@ -709,12 +1174,13 @@ document.addEventListener('keydown', e => {
   }
 });
 
-boot().catch(e => {
+function fail(e) {
   document.body.innerHTML = '<div class="wrap"><p style="padding:40px 0">'
     + 'Could not load the texts: ' + e
     + '<br><br>Serve this folder rather than opening the file directly:<br>'
     + '<code>cd public &amp;&amp; python -m http.server 8000</code></p></div>';
-});
+}
+start().catch(fail);
 </script>
 </body>
 </html>
