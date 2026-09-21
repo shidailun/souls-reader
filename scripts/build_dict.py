@@ -156,11 +156,15 @@ def run_batch(todo):
 
 
 def main():
-    global MODEL
+    global MODEL, CHUNK
     argv = sys.argv[1:]
     if '--model' in argv:
         i = argv.index('--model')
         MODEL = argv[i + 1]
+        del argv[i:i + 2]
+    if '--chunk' in argv:               # smaller chunks: a refusal loses fewer words
+        i = argv.index('--chunk')
+        CHUNK = int(argv[i + 1])
         del argv[i:i + 2]
     limit = None
     if '--limit' in argv:
