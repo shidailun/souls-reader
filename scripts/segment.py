@@ -31,6 +31,7 @@ BREAK = ',;:—–'            # , ; : em dash, en dash
 CLOSERS = '"\'”’)]'        # stripped before looking at the last char
 MIN_WORDS = 3                         # shorter pieces merge into a neighbour
 MAX_WORDS = 8                         # longer pieces split again at a phrase
+HARD_MAX = 12                         # ...and past this, even without one
 
 # Where a phrase can start, and how much we like splitting there: clause words
 # first, prepositions only when nothing better is near the middle. Never "of":
@@ -39,8 +40,15 @@ CLAUSE = set('''and but or nor so yet because when while until before after
     since that which who whom whose where if though although unless whether
     as than then like'''.split())
 PREP = set('''with without into onto from through across behind under over
-    at in on to for about around against along between beside toward towards
-    down up past inside outside'''.split())
+    at in on for around against along between beside toward towards
+    inside outside'''.split())
+# ...and never cut AFTER a word that leans on what follows it: "six weeks of |
+# playing", "was supposed | to be". (to/up/down are left out of PREP for the
+# same reason: "signed her | up" breaks a phrasal verb.)
+BINDS = set('''of a an the to her his my their its our your this that these
+    those some any no every is was were are be been being am had has have do
+    did does will would could should can may might must not very so too
+    supposed going about than'''.split())
 
 
 def breaks_after(word):
@@ -60,13 +68,19 @@ def halve(words, i, j):
     for k in range(i + MIN_WORDS, j - MIN_WORDS + 1):
         w = bare(words[k]['text'])
         penalty = 0 if w in CLAUSE else 2 if w in PREP else None
-        if penalty is None:
+        if penalty is None or bare(words[k - 1]['text']) in BINDS:
             continue
         score = abs(k - mid) + penalty
         if best is None or score < best:
             best, cut = score, k
-    if cut is None:                       # no phrase boundary: halve plainly
-        cut = int(mid)
+    if cut is None:
+        # No phrase boundary. A slightly long phrase beats a broken one; only
+        # a run past HARD_MAX is cut blind, and never after a binding word.
+        if j - i <= HARD_MAX:
+            return [(i, j)]
+        ok = [k for k in range(i + MIN_WORDS, j - MIN_WORDS + 1)
+              if bare(words[k - 1]['text']) not in BINDS]
+        cut = min(ok, key=lambda k: abs(k - mid)) if ok else int(mid)
     return halve(words, i, cut) + halve(words, cut, j)
 
 

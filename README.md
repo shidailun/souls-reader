@@ -79,7 +79,7 @@ Each stage reads what the last one wrote and can be rerun without undoing it.
 | 4 | `scripts/build_dict.py` | `public/dict.json` = word → `{ipa, zh}` | **every word in chapter 1**; whole book by batch |
 | 5 | `scripts/narrate.py` | TTS → `public/audio/{code}.mp3` | **chapter 1** — 6:03 |
 | 6 | `scripts/align.py` | forced alignment → sentence and word timings | **chapter 1** — 48/48 |
-| 7 | `scripts/segment.py` | splits sentences into clauses → `segments` | **chapter 1** — 111 segments |
+| 7 | `scripts/segment.py` | splits sentences into phrases of 3–8 words → `segments` | **all chapters**; chapter 1 translated |
 
 Chapter 1 has been through all six stages and works end to end: tap a sentence,
 hear it, watch the words light up. Chapters 2–31 have text and nothing else —
