@@ -2,10 +2,14 @@
 """Split each sentence into segments - clause-sized chunks, the finest unit the
 reader steps through - and fill `segments` in the pack.
 
-Same convention as germanic-literature: a segment breaks after a word ending in
-, ; : or a dash; a sentence that yields only one segment gets `segments: []`,
-because the sentence IS its own segment and duplicating it would only give the
-reader two copies of the same clip. Ids extend the sentence id: p001s01g01.
+A segment breaks after a word ending in , ; : or a dash, as in
+germanic-literature. Novel sentences run long, though (about 20 words here),
+and many have no internal punctuation, so segment view would just be sentence
+view again. So any run still longer than MAX_WORDS is split again before a
+conjunction, relative word or preposition, as near its middle as possible,
+until each piece is a phrase she can hold in her head. Only a sentence short
+enough to be one phrase (MAX_WORDS or fewer) gets `segments: []`: it IS its own
+segment. Ids extend the sentence id: p001s01g01.
 
 Segment words are slices of the sentence's words, so their timings come from
 whatever align.py wrote; rerun this after align.py and the segments pick the new
@@ -26,11 +30,44 @@ CODES = [f'souls{n:02d}' for n in range(1, 32)]
 BREAK = ',;:—–'            # , ; : em dash, en dash
 CLOSERS = '"\'”’)]'        # stripped before looking at the last char
 MIN_WORDS = 3                         # shorter pieces merge into a neighbour
+MAX_WORDS = 8                         # longer pieces split again at a phrase
+
+# Where a phrase can start, and how much we like splitting there: clause words
+# first, prepositions only when nothing better is near the middle. Never "of":
+# "a cup | of coffee" is not two phrases.
+CLAUSE = set('''and but or nor so yet because when while until before after
+    since that which who whom whose where if though although unless whether
+    as than then like'''.split())
+PREP = set('''with without into onto from through across behind under over
+    at in on to for about around against along between beside toward towards
+    down up past inside outside'''.split())
 
 
 def breaks_after(word):
     t = word.strip().rstrip(CLOSERS)
     return bool(t) and t[-1] in BREAK
+
+
+def bare(word):
+    return word.strip().strip(CLOSERS + '"“‘(').lower()
+
+
+def halve(words, i, j):
+    """Split words[i:j] into phrase-sized runs, recursively."""
+    if j - i <= MAX_WORDS:
+        return [(i, j)]
+    mid, best, cut = (i + j) / 2, None, None
+    for k in range(i + MIN_WORDS, j - MIN_WORDS + 1):
+        w = bare(words[k]['text'])
+        penalty = 0 if w in CLAUSE else 2 if w in PREP else None
+        if penalty is None:
+            continue
+        score = abs(k - mid) + penalty
+        if best is None or score < best:
+            best, cut = score, k
+    if cut is None:                       # no phrase boundary: halve plainly
+        cut = int(mid)
+    return halve(words, i, cut) + halve(words, cut, j)
 
 
 def split(words):
@@ -49,7 +86,7 @@ def split(words):
             merged[-1] = (merged[-1][0], r[1])
         else:
             merged.append(r)
-    return merged
+    return [piece for i, j in merged for piece in halve(words, i, j)]
 
 
 def segment(code):

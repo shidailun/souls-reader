@@ -33,7 +33,7 @@ DICT = ROOT / 'public' / 'dict.json'
 STATE = ROOT / 'build_data' / 'dict_state.json'
 
 MODEL = 'claude-sonnet-5'
-CHUNK = 100                     # words per request
+CHUNK = 50                      # words per request; 100 truncated replies
 MIN_LEN = 2
 
 SYSTEM = (
@@ -115,7 +115,7 @@ def run_now(todo):
         try:
             d.update(parse(reply_text(r)))
         except json.JSONDecodeError:
-            print(f'  chunk {i}: unparseable reply, skipped')
+            print(f'  chunk {i}: unparseable reply ({r.stop_reason}), skipped')
         save(d)
         print(f'  chunk {i}: {len(d)} entries')
 

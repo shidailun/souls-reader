@@ -252,7 +252,7 @@
       </div>
       <div class="ctl">
         <button class="btn" id="splay">&#9654; Play</button>
-        <button class="btn" id="stzhbtn">Translation</button>
+        <button class="btn" id="stzhbtn">中文</button>
         <label>Speed <input type="range" id="speed" min="0.5" max="1" step="0.05">
           <span id="speedv"></span></label>
       </div>
@@ -272,6 +272,7 @@
     <p class="zh" id="szh"></p>
     <div class="row">
       <button class="btn" id="play">&#9654; Play</button>
+      <button class="btn" id="szhbtn">中文</button>
       <span class="ttl" id="audionote" style="color:var(--dim);font-size:.75rem"></span>
     </div>
     <div class="gloss" id="gloss"></div>
@@ -336,7 +337,7 @@
 const $ = s => document.querySelector(s);
 const MODES = ['segment', 'sentence', 'paragraph', 'story'];
 const state = {reg:null, dict:null, pack:null, packs:{}, idx:0, sent:null, showZh:false,
-               mode:'sentence', units:null, pos:0, anchor:null, stepZh:true, rate:1};
+               mode:'sentence', units:null, pos:0, anchor:null, rate:1};
 
 const LS = {
   get: (k, d) => { try { return JSON.parse(localStorage.getItem('souls.'+k)) ?? d; }
@@ -456,8 +457,6 @@ async function boot() {
   if (size) document.documentElement.style.setProperty('--size', size + 'px');
   state.showZh = LS.get('showZh', false);
   $('#tzh').classList.toggle('on', state.showZh);
-  state.stepZh = LS.get('stepZh', true);
-  $('#stzhbtn').classList.toggle('on', state.stepZh);
   state.rate = LS.get('rate', 1);
   $('#speed').value = state.rate;
   $('#speedv').textContent = state.rate.toFixed(2) + '×';
@@ -632,6 +631,7 @@ function select(s, span) {
   state.sent = {data: s, el: span, els: wordRow($('#sen'), [s], $('#gloss'))};
 
   const zh = $('#szh');
+  showZh(zh, $('#szhbtn'), false);
   if (s.translation) { zh.textContent = s.translation; zh.classList.remove('untranslated'); }
   else { zh.textContent = 'Not translated yet — run scripts/translate.py.';
          zh.classList.add('untranslated'); }
@@ -671,7 +671,7 @@ function goTo(i, autoplay = true) {
 
   state.stepEls = wordRow($('#sten'), u.parts, $('#sgloss'));
   const zh = $('#stzh');
-  zh.style.display = state.stepZh ? '' : 'none';
+  showZh(zh, $('#stzhbtn'), false);
   zh.textContent = u.translation || 'Not translated yet.';
   zh.classList.toggle('untranslated', !u.translation);
   $('#sgloss').style.display = 'none';
@@ -893,6 +893,8 @@ async function showCard() {
     rv.exEls.forEach((el, i) => el.onclick = () =>
       glossFor(ex.s.words[i].text, $('#rgloss'), {code: ex.code, sid: ex.s.id}, el));
     $('#rexzh').textContent = ex.s.translation || '';
+    $('#rexzh').style.display = rv.shown ? '' : 'none';
+    $('#rexen').style.display = rv.shown || card.dir === 'en' ? '' : 'none';
     $('#rplay').style.display = ex.s.src || ex.s.audio ? '' : 'none';
   }
   // English -> Chinese: hear it on the front. Chinese -> English: only after
@@ -909,6 +911,8 @@ function reveal() {
   $('#ripa').textContent = e.ipa ? '/' + e.ipa + '/' : '';
   $('#rzh').textContent = card.dir === 'en' ? (e.zh || '') : '';
   $('#rgloss').style.display = 'none';
+  $('#rexen').style.display = '';
+  $('#rexzh').style.display = '';
   $('#ranswer').style.display = 'block';
   drawActions();
   if (card.dir === 'zh') playWord();
@@ -1097,12 +1101,15 @@ $('#close').onclick = closeSheet;
 $('#sprev').onclick = () => goTo(state.pos - 1);
 $('#snext').onclick = () => goTo(state.pos + 1);
 $('#sjump').onchange = e => goTo(parseInt(e.target.value, 10) - 1);
-$('#stzhbtn').onclick = () => {
-  state.stepZh = !state.stepZh;
-  LS.set('stepZh', state.stepZh);
-  $('#stzhbtn').classList.toggle('on', state.stepZh);
-  $('#stzh').style.display = state.stepZh ? '' : 'none';
-};
+// Chinese on demand: hidden until she asks, and hidden again on the next unit,
+// so she reads the English first every time.
+function showZh(zh, btn, on) {
+  zh.style.display = on ? '' : 'none';
+  btn.classList.toggle('on', on);
+}
+const toggleZh = (zh, btn) => showZh(zh, btn, zh.style.display === 'none');
+$('#stzhbtn').onclick = () => toggleZh($('#stzh'), $('#stzhbtn'));
+$('#szhbtn').onclick = () => toggleZh($('#szh'), $('#szhbtn'));
 $('#speed').oninput = e => {
   state.rate = parseFloat(e.target.value);
   au.defaultPlaybackRate = au.playbackRate = state.rate;
@@ -1163,7 +1170,10 @@ document.addEventListener('keydown', e => {
   }
   if ($('#reader').style.display !== 'block') return;
   const step = state.mode !== 'story';
-  if (e.key === ' ') {
+  if (e.key === 'c' || e.key === 'C') {
+    if (step) toggleZh($('#stzh'), $('#stzhbtn'));
+    else if (state.sent) toggleZh($('#szh'), $('#szhbtn'));
+  } else if (e.key === ' ') {
     e.preventDefault();
     if (step) togglePlay(playUnit);
     else if (state.sent) togglePlay(playSheet);
