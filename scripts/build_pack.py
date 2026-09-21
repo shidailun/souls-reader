@@ -54,7 +54,7 @@ SPLIT = re.compile(
     r"\s+"
     r"(?=[\"'\u201c\u2018(\[\u2014]?[A-Z0-9\u201c])"
 )
-HOLD = re.compile(r"(?:\b" + ABBREV + r"|\b[A-Z])$")    # \u2026text before the dot
+HOLD = re.compile(r"(?:\b(?i:" + ABBREV + r")|\b[A-Z])$")    # \u2026text before the dot
 
 WORD = re.compile(r"\S+\s*")
 LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'

@@ -18,9 +18,9 @@ and never leaves this machine. The salt is kept across publishes, so a device
 that remembered the key keeps working after you update the audio or the text.
 
 Updating the audio: replace public/audio/soulsNN.mp3 (or rerun narrate.py),
-run align.py and segment.py for that chapter, then run this. Each publish is a
-fresh single-commit gh-pages branch, force-pushed, so old ciphertext does not
-pile up in the history.
+run align.py and segment.py for that chapter, then run this. Each publish
+commits on top of the live gh-pages and pushes only the files whose content
+changed, so a text fix uploads a few hundred KB, not the whole audiobook.
 """
 import base64, hashlib, json, os, secrets, shutil, subprocess, sys, io, tempfile
 from pathlib import Path
@@ -111,12 +111,59 @@ def deploy():
     remote = subprocess.run(['git', 'remote', 'get-url', 'origin'], cwd=ROOT,
                             capture_output=True, text=True, check=True).stdout.strip()
     with tempfile.TemporaryDirectory() as tmp:
-        shutil.copytree(SITE, tmp, dirs_exist_ok=True)
-        git('init', '-q', '-b', 'gh-pages', cwd=tmp)
-        git('add', '-A', cwd=tmp)
-        git('-c', 'user.name=souls-reader', '-c', 'user.email=souls-reader@users.noreply.github.com',
-            'commit', '-q', '-m', 'Publish sealed reader', cwd=tmp)
-        git('push', '-q', '-f', remote, 'gh-pages', cwd=tmp)
+        # Incremental: start from the live gh-pages and replace only the files
+        # whose content changed. Sealing is randomised, so without this every
+        # publish re-uploads all ~200 MB of audio, which this link cannot push
+        # (HTTP 408). A file's version tag in data/index.json is a hash of its
+        # plaintext, so an unchanged tag means the live ciphertext is still good.
+        got = subprocess.run(['git', 'clone', '-q', '--depth', '1', '-b', 'gh-pages', remote, tmp])
+        live = {}
+        if got.returncode == 0 and not (Path(tmp) / 'data' / 'index.json').exists():
+            pass                                 # an old publish: keep its history, replace every file
+        elif got.returncode == 0:
+            live = json.loads((Path(tmp) / 'data' / 'index.json').read_text(encoding='utf-8'))
+            if json.loads((Path(tmp) / 'sealed.json').read_text(encoding='utf-8'))['salt'] !=                     json.loads((SITE / 'sealed.json').read_text(encoding='utf-8'))['salt']:
+                live = {}                        # new password: everything changes
+        else:
+            shutil.rmtree(tmp, ignore_errors=True); Path(tmp).mkdir(exist_ok=True)
+            git('init', '-q', '-b', 'gh-pages', cwd=tmp)
+        new = json.loads((SITE / 'data' / 'index.json').read_text(encoding='utf-8'))
+        want = {p.relative_to(SITE).as_posix() for p in SITE.rglob('*') if p.is_file()}
+        for p in list(Path(tmp).rglob('*')):
+            rel = p.relative_to(tmp).as_posix()
+            if p.is_file() and '.git' not in p.parts and rel not in want:
+                p.unlink()
+        changed = []
+        for rel in sorted(want):
+            src = rel[len('data/'):-len('.bin')] if rel.startswith('data/') and rel.endswith('.bin') else None
+            dest = Path(tmp) / rel
+            if src and live.get(src) == new.get(src) and dest.exists():
+                continue
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(SITE / rel, dest)
+            changed.append(dest)
+        print(f'{len(changed)} files changed, {sum(p.stat().st_size for p in changed) / 1e6:.1f} MB to push')
+        batches, cur, size = [], [], 0
+        for p in changed:
+            cur.append(p); size += p.stat().st_size
+            if size > float(os.environ.get('PUBLISH_BATCH', 10e6)):
+                batches.append(cur); cur, size = [], 0
+        if cur:
+            batches.append(cur)
+        for k, batch in enumerate(batches, 1):
+            git('add', '-A', '--', *[str(p.relative_to(tmp)) for p in batch], cwd=tmp)
+            if k == len(batches):
+                git('add', '-A', cwd=tmp)        # deletions ride with the last batch
+            git('-c', 'user.name=souls-reader', '-c', 'user.email=souls-reader@users.noreply.github.com',
+                'commit', '-q', '-m', f'Publish sealed reader ({k}/{len(batches)})', cwd=tmp)
+            for attempt in range(3):             # a slow link drops the odd push
+                r = subprocess.run(['git', '-c', 'http.postBuffer=524288000', '-c', 'http.version=HTTP/1.1',
+                                    'push', '-q', remote, 'HEAD:gh-pages'], cwd=tmp)
+                if r.returncode == 0:
+                    break
+            else:
+                sys.exit(f'push {k}/{len(batches)} failed three times')
+            print(f'  pushed {k}/{len(batches)}')
     print('pushed gh-pages')
 
     got = subprocess.run(['gh', 'api', f'repos/{REPO}/pages'], capture_output=True, text=True)

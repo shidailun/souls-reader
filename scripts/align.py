@@ -80,6 +80,40 @@ def emissions(wave):
     return torch.cat(out, dim=1)                   # [1, T, V]
 
 
+OVERLAP = 1500                           # extra tokens aligned but not kept
+WIN_TOK = 4000                           # tokens per DP window: the CPU trellis is
+                                         # frames x tokens, and a whole long
+                                         # chapter in one go segfaults
+
+
+class _Span:
+    __slots__ = ('start', 'end')
+
+    def __init__(self, start, end):
+        self.start, self.end = start, end
+
+
+def windowed_align(em, tokens):
+    """forced_align over consecutive token windows, so memory stays bounded
+    however long the chapter is. Each window aligns WIN_TOK tokens plus an
+    OVERLAP of the next ones against generous audio, but commits only its first
+    WIN_TOK: the overlap soaks up the following speech, so the DP cannot stretch
+    the committed tokens over audio that belongs to the next window."""
+    T = em.shape[1]
+    rate = T / len(tokens)                           # frames per token, chapter-wide
+    out, f0, i = [], 0, 0
+    while i < len(tokens):
+        tk = tokens[i:i + WIN_TOK + OVERLAP]
+        last = i + len(tk) >= len(tokens)
+        f1 = T if last else min(T, f0 + int(len(tk) * rate * 1.3) + 500)
+        f1 = max(f1, min(T, f0 + len(tk) * 2 + 1))
+        a, sc = forced_align(em[:, f0:f1], torch.tensor([tk], dtype=torch.int32), blank=0)
+        sp = merge_tokens(a[0], sc[0].exp())
+        keep = len(tk) if last else WIN_TOK
+        out.extend(_Span(x.start + f0, x.end + f0) for x in sp[:keep])
+        f0, i = out[-1].end, i + keep
+    return out
+
 def distribute(words, s, e):
     """Word spans inside a measured sentence, proportional to word length."""
     wt = [max(1, len((w.get('text') or '').strip())) for w in words]
@@ -122,8 +156,7 @@ def align(code):
         return
 
     em = emissions(load_audio(src))
-    aligned, scores = forced_align(em, torch.tensor([tokens], dtype=torch.int32), blank=0)
-    spans = merge_tokens(aligned[0], scores[0].exp())     # one span per token
+    spans = windowed_align(em, tokens)                    # one span per token
 
     lo, hi, k = {}, {}, 0
     for si, n in zip(owner, ntok):

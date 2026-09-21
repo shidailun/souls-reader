@@ -2,16 +2,13 @@
 """Split each sentence into segments - clause-sized chunks, the finest unit the
 reader steps through - and fill `segments` in the pack.
 
-A segment breaks after a word ending in , ; : or a dash, as in
-germanic-literature. Novel sentences run long, though (about 20 words here),
-and many have no internal punctuation, so segment view would just be sentence
-view again. So any run still longer than MAX_WORDS is split again before a
-conjunction, relative word or preposition, as near its middle as possible,
-until each piece is a phrase she can hold in her head. Only a sentence short
-enough to be one phrase (MAX_WORDS or fewer) gets `segments: []`: it IS its own
-segment. Ids extend the sentence id: p001s01g01.
+A segment is the stretch of a sentence between two punctuation marks:
+it breaks after a word ending in , ; : a dash, an ellipsis, or a ? or !
+inside the sentence, and nowhere else. A sentence with no internal punctuation
+gets `segments: []`: it IS its own segment. Ids extend the sentence id:
+p001s01g01.
 
-Segment words are slices of the sentence's words, so their timings come from
+Segment words are copies of the sentence's words, so their timings come from
 whatever align.py wrote; rerun this after align.py and the segments pick the new
 timings up. Translations survive a rerun for any segment whose text is unchanged.
 
@@ -27,28 +24,9 @@ DATA = ROOT / 'src' / 'data'
 PUB = ROOT / 'public' / 'texts'
 CODES = [f'souls{n:02d}' for n in range(1, 32)]
 
-BREAK = ',;:—–'            # , ; : em dash, en dash
+BREAK = ',;:—–…?!'         # , ; : dashes, ellipsis, and a mid-sentence ? or !
 CLOSERS = '"\'”’)]'        # stripped before looking at the last char
-MIN_WORDS = 3                         # shorter pieces merge into a neighbour
-MAX_WORDS = 8                         # longer pieces split again at a phrase
-HARD_MAX = 12                         # ...and past this, even without one
-
-# Where a phrase can start, and how much we like splitting there: clause words
-# first, prepositions only when nothing better is near the middle. Never "of":
-# "a cup | of coffee" is not two phrases.
-CLAUSE = set('''and but or nor so yet because when while until before after
-    since that which who whom whose where if though although unless whether
-    as than then like'''.split())
-PREP = set('''with without into onto from through across behind under over
-    at in on for around against along between beside toward towards
-    inside outside'''.split())
-# ...and never cut AFTER a word that leans on what follows it: "six weeks of |
-# playing", "was supposed | to be". (to/up/down are left out of PREP for the
-# same reason: "signed her | up" breaks a phrasal verb.)
-BINDS = set('''of a an the to her his my their its our your this that these
-    those some any no every is was were are be been being am had has have do
-    did does will would could should can may might must not very so too
-    supposed going about than'''.split())
+INNER = '—–…'              # "legend—it’s" is one token but two segments
 
 
 def breaks_after(word):
@@ -56,51 +34,65 @@ def breaks_after(word):
     return bool(t) and t[-1] in BREAK
 
 
-def bare(word):
-    return word.strip().strip(CLOSERS + '"“‘(').lower()
+def pieces(w):
+    """A word with a dash or ellipsis inside it, split after that mark. Timings
+    are shared out by length, so karaoke still walks through it."""
+    text, cuts = w['text'], []
+    for k, ch in enumerate(text):
+        if ch in INNER and any(c.isalpha() for c in text[:k]) and text[k + 1:].strip().rstrip(CLOSERS) and text[k + 1] not in INNER:
+            cuts.append(k + 1)
+    if not cuts:
+        return [dict(w)]
+    bits = [text[a:b] for a, b in zip([0] + cuts, cuts + [len(text)])]
+    st, en = w.get('start'), w.get('end')
+    out, done = [], 0
+    for b in bits:
+        d = dict(w, text=b)
+        if st is not None and en is not None:
+            d['start'] = round(st + (en - st) * done / len(text), 3)
+            done += len(b)
+            d['end'] = round(st + (en - st) * done / len(text), 3)
+        out.append(d)
+    return out
 
 
-def halve(words, i, j):
-    """Split words[i:j] into phrase-sized runs, recursively."""
-    if j - i <= MAX_WORDS:
-        return [(i, j)]
-    mid, best, cut = (i + j) / 2, None, None
-    for k in range(i + MIN_WORDS, j - MIN_WORDS + 1):
-        w = bare(words[k]['text'])
-        penalty = 0 if w in CLAUSE else 2 if w in PREP else None
-        if penalty is None or bare(words[k - 1]['text']) in BINDS:
+def quoted(ws):
+    """Indices of words inside a quoted title or phrase - ‘One Life, One
+    Bullet,’ or a faded “Valhalla…I am coming” T-shirt - where a comma or
+    ellipsis must not start a segment. Dialogue is left alone: a “ that opens
+    the sentence or follows a comma or colon is speech, not a title."""
+    keep = set()
+    for i, w in enumerate(ws):
+        t = w['text'].strip()
+        if not t or t[0] not in '‘“':
             continue
-        score = abs(k - mid) + penalty
-        if best is None or score < best:
-            best, cut = score, k
-    if cut is None:
-        # No phrase boundary. A slightly long phrase beats a broken one; only
-        # a run past HARD_MAX is cut blind, and never after a binding word.
-        if j - i <= HARD_MAX:
-            return [(i, j)]
-        ok = [k for k in range(i + MIN_WORDS, j - MIN_WORDS + 1)
-              if bare(words[k - 1]['text']) not in BINDS]
-        cut = min(ok, key=lambda k: abs(k - mid)) if ok else int(mid)
-    return halve(words, i, cut) + halve(words, cut, j)
+        prev = ws[i - 1]['text'].strip() if i else ''
+        if t[0] == '“' and (not prev or prev[-1] in ',:;—–…'):
+            continue
+        close = '’' if t[0] == '‘' else '”'
+        for j in range(i, min(i + 12, len(ws))):
+            u = ws[j]['text'].strip().rstrip(',.;:!?')
+            if u.endswith(close) and (j > i or len(u) > 1):
+                keep.update(range(i, j))
+                break
+    return keep
 
 
 def split(words):
-    """Word-index runs [(i, j), ...] covering the sentence."""
-    runs, start = [], 0
-    for i, w in enumerate(words):
-        if breaks_after(w['text']) and i < len(words) - 1:
-            runs.append((start, i + 1))
-            start = i + 1
-    runs.append((start, len(words)))
-
-    # Merge fragments: "Kris," alone is not a clause, it is a name with a comma.
-    merged = []
-    for r in runs:
-        if merged and (r[1] - r[0] < MIN_WORDS or merged[-1][1] - merged[-1][0] < MIN_WORDS):
-            merged[-1] = (merged[-1][0], r[1])
-        else:
-            merged.append(r)
-    return [piece for i, j in merged for piece in halve(words, i, j)]
+    """The sentence as segments: a new one starts after every word ending in
+    punctuation, and nowhere else. Returns lists of (copied) words."""
+    runs, cur = [], []
+    ws = [x for w in words for x in pieces(w)]
+    hold = quoted(ws)
+    for k, w in enumerate(ws):
+        cur.append(w)
+        # "“…" opening a line is not a segment: break only once there are words
+        if k not in hold and breaks_after(w['text']) and any(c.isalpha() for x in cur for c in x['text']):
+            runs.append(cur); cur = []
+    if cur:
+        runs.append(cur)
+    # Closing punctuation of the sentence itself is not a break.
+    return [r for r in runs if ''.join(w['text'] for w in r).strip()]
 
 
 def segment(code):
@@ -116,8 +108,7 @@ def segment(code):
                 s['segments'] = []
                 continue
             segs = []
-            for k, (i, j) in enumerate(runs, 1):
-                ws = [dict(w) for w in s['words'][i:j]]
+            for k, ws in enumerate(runs, 1):
                 text = ''.join(w['text'] for w in ws).strip()
                 prev = old.get(text) or {}
                 timed = [w for w in ws if w.get('start') is not None]
