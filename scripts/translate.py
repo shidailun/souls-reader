@@ -87,11 +87,18 @@ def system_prompt():
     )
 
 
+def units(pack):
+    """Every translatable unit: each sentence, then its segments (scripts/
+    segment.py). A segment is a clause cut from a sentence; its ids end gNN."""
+    for p in pack['paragraphs']:
+        for s in p['sentences']:
+            yield s
+            yield from s.get('segments') or []
+
+
 def pending(code):
     pack = json.loads((DATA / f'{code}.json').read_text(encoding='utf-8'))
-    todo = [s for p in pack['paragraphs'] for s in p['sentences']
-            if not s.get('translation')]
-    return pack, todo
+    return pack, [u for u in units(pack) if not u.get('translation')]
 
 
 def chunks(todo):
@@ -118,12 +125,11 @@ def parse(text):
 
 def apply(pack, code, got):
     n = 0
-    for p in pack['paragraphs']:
-        for s in p['sentences']:
-            t = got.get(s['id'])
-            if t and not s.get('translation'):
-                s['translation'] = t.strip()
-                n += 1
+    for u in units(pack):
+        t = got.get(u['id'])
+        if t and not u.get('translation'):
+            u['translation'] = t.strip()
+            n += 1
     (DATA / f'{code}.json').write_text(
         json.dumps(pack, ensure_ascii=False, indent=1), encoding='utf-8')
     (PUB / f'{code}.json').write_text(

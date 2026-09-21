@@ -97,11 +97,28 @@
   #sheet .zh{font-family:var(--han);color:var(--zh);font-size:1.12rem;line-height:1.7;margin:0}
   #sheet .row{display:flex;gap:8px;align-items:center;margin-top:14px}
   #sheet .x{position:absolute;right:10px;top:8px}
-  #gloss{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);
+  .gloss{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);
     font-size:.92rem;display:none}
-  #gloss b{color:var(--ink)}
-  #gloss .ipa{color:var(--dim);font-family:var(--serif);margin-left:.4em}
-  #gloss .zh{font-family:var(--han);color:var(--zh);display:block;margin-top:.25em}
+  .gloss b{color:var(--ink)}
+  .gloss .ipa{color:var(--dim);font-family:var(--serif);margin-left:.4em}
+  .gloss .zh{font-family:var(--han);color:var(--zh);display:block;margin-top:.25em;font-size:1.05rem}
+  .btn:disabled{opacity:.35;cursor:default}
+
+  /* ---------- view modes: Segment · Sentence · Paragraph · Chapter ---------- */
+  #bar .modes{height:auto;padding-bottom:8px;gap:4px}
+  #bar .modes .btn{flex:1}
+  #step{display:none;padding:6px 0 30px;touch-action:pan-y}
+  #step .en{font-size:calc(var(--size) * 1.2);line-height:1.6;margin:0 0 .7em;min-height:3.2em}
+  #step .en .w{cursor:pointer;border-radius:2px}
+  #step .en .w:hover{background:#2a2a30}
+  #step .zh{font-family:var(--han);color:var(--zh);font-size:calc(var(--size) * 1.02);
+    line-height:1.75;margin:0}
+  .ctl{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    margin-top:18px;flex-wrap:wrap}
+  .ctl .pos{color:var(--dim);font-size:.8rem}
+  .ctl input[type=number]{width:4.2em;background:var(--panel);color:var(--ink);
+    border:1px solid var(--line);border-radius:3px;font:inherit;font-size:.8rem;padding:3px 5px}
+  .ctl label{color:var(--dim);font-size:.75rem;display:flex;align-items:center;gap:6px}
 
   @media (max-width:640px){
     .hero{flex-direction:column;gap:18px;padding-top:26px}
@@ -125,9 +142,10 @@
         <p class="zh" id="bzh"></p>
         <p class="by" id="bby"></p>
         <p class="note">
-          Tap any sentence for the Chinese. Inside the panel, tap a word for its
-          pronunciation and gloss. Where narration exists, the sentence plays and
-          the words light up as they are spoken.
+          Read a segment, a sentence, a paragraph or the whole chapter at a time.
+          Tap any word for its pronunciation and Chinese gloss. Where narration
+          exists, each piece plays on its own and the words light up as they are
+          spoken.
         </p>
       </div>
     </div>
@@ -143,6 +161,12 @@
     <button class="btn" id="smaller">A&minus;</button>
     <button class="btn" id="bigger">A+</button>
   </div>
+  <div class="wrap modes" id="modes">
+    <button class="btn" data-mode="segment">Segment</button>
+    <button class="btn" data-mode="sentence">Sentence</button>
+    <button class="btn" data-mode="paragraph">Paragraph</button>
+    <button class="btn" data-mode="story">Chapter</button>
+  </div>
 </div>
 
 <div id="reader">
@@ -151,6 +175,22 @@
       <div class="n" id="cnum"></div>
       <h2 id="ctitle"></h2>
       <p class="zh" id="czh"></p>
+    </div>
+    <div id="step">
+      <p class="en" id="sten"></p>
+      <p class="zh" id="stzh"></p>
+      <div class="gloss" id="sgloss"></div>
+      <div class="ctl">
+        <button class="btn" id="sprev">&lsaquo; Previous</button>
+        <span class="pos"><input type="number" id="sjump" min="1"> / <span id="stot"></span></span>
+        <button class="btn" id="snext">Next &rsaquo;</button>
+      </div>
+      <div class="ctl">
+        <button class="btn" id="splay">&#9654; Play</button>
+        <button class="btn" id="stzhbtn">Translation</button>
+        <label>Speed <input type="range" id="speed" min="0.5" max="1" step="0.05">
+          <span id="speedv"></span></label>
+      </div>
     </div>
     <div id="body"></div>
     <div class="nav">
@@ -169,7 +209,7 @@
       <button class="btn" id="play">&#9654; Play</button>
       <span class="ttl" id="audionote" style="color:var(--dim);font-size:.75rem"></span>
     </div>
-    <div id="gloss"></div>
+    <div class="gloss" id="gloss"></div>
   </div>
 </div>
 
@@ -182,9 +222,15 @@
 // JSON drops into the React app later without a conversion step.
 //
 //   cd public && python -m http.server 8000   ->   http://localhost:8000
+//
+// Four views, as in germanic-literature: Segment, Sentence and Paragraph step
+// through the chapter one unit at a time; Chapter is the continuous text.
+// Switching view keeps your place, anchored on a sentence id.
 // ---------------------------------------------------------------------------
 const $ = s => document.querySelector(s);
-const state = {reg:null, dict:null, pack:null, idx:0, sent:null, showZh:false};
+const MODES = ['segment', 'sentence', 'paragraph', 'story'];
+const state = {reg:null, dict:null, pack:null, idx:0, sent:null, showZh:false,
+               mode:'sentence', units:null, pos:0, anchor:null, stepZh:true, rate:1};
 
 const LS = {
   get: (k, d) => { try { return JSON.parse(localStorage.getItem('souls.'+k)) ?? d; }
@@ -225,16 +271,63 @@ async function boot() {
   if (size) document.documentElement.style.setProperty('--size', size + 'px');
   state.showZh = LS.get('showZh', false);
   $('#tzh').classList.toggle('on', state.showZh);
+  state.stepZh = LS.get('stepZh', true);
+  $('#stzhbtn').classList.toggle('on', state.stepZh);
+  state.rate = LS.get('rate', 1);
+  $('#speed').value = state.rate;
+  $('#speedv').textContent = state.rate.toFixed(2) + '×';
+  const m = LS.get('mode', 'sentence');
+  state.mode = MODES.includes(m) ? m : 'sentence';
 
   const last = LS.get('last', null);
   if (last !== null && state.reg.chapters[last]) open(last);
 }
 
+// ---------------------------------------------------------------------------
+// Units. Every unit carries `parts` (what plays, in order), `sids` (the
+// sentence ids it covers) and `sentenceId` (where it anchors when you switch).
+// A sentence with no segments is its own single segment, as in germanic.
+// ---------------------------------------------------------------------------
+function buildUnits(pack) {
+  const segment = [], sentence = [], paragraph = [];
+  pack.paragraphs.forEach((p, pi) => {
+    const ss = p.sentences;
+    for (const s of ss) {
+      sentence.push({id: s.id, sentenceId: s.id, sids: [s.id], parts: [s],
+                     translation: s.translation});
+      const gs = s.segments && s.segments.length ? s.segments : [s];
+      for (const g of gs)
+        segment.push({id: g.id, sentenceId: s.id, sids: [s.id], parts: [g],
+                      translation: g.translation || (gs.length === 1 ? s.translation : null)});
+    }
+    if (ss.length) {
+      const zh = ss.filter(s => s.translation).map(s => s.translation).join('');
+      paragraph.push({id: 'para_' + pi, sentenceId: ss[0].id, sids: ss.map(s => s.id),
+                      parts: ss, translation: zh || null});
+    }
+  });
+  return {segment, sentence, paragraph};
+}
+
+const unitsNow = () => state.units[state.mode] || [];
+const firstSid = () => state.pack.paragraphs[0]?.sentences[0]?.id || null;
+
+function setAnchor(sid) {
+  if (!sid) return;
+  state.anchor = sid;
+  const pos = LS.get('pos', {});
+  pos[state.pack.id] = sid;
+  LS.set('pos', pos);
+}
+
 async function open(i) {
   const c = state.reg.chapters[i];
   if (!c) return;
+  stop();
   state.idx = i;
   state.pack = await (await fetch(`texts/${c.id}.json`)).json();
+  state.units = buildUnits(state.pack);
+  state.anchor = LS.get('pos', {})[state.pack.id] || firstSid();
   LS.set('last', i);
 
   $('#cnum').textContent = `Chapter ${String(i + 1).padStart(2, '0')}`;
@@ -249,8 +342,43 @@ async function open(i) {
   render();
   closeSheet();
   window.scrollTo(0, 0);
+  setMode(state.mode, true);
 }
 
+function setMode(mode, fresh) {
+  // Leaving the chapter view: the place is the sentence at the top of the screen.
+  if (!fresh && state.mode === 'story' && !state.sent) {
+    const bar = $('#bar').getBoundingClientRect().bottom;
+    const top = [...document.querySelectorAll('#body .sent')]
+      .find(e => e.getBoundingClientRect().bottom > bar + 4);
+    if (top) setAnchor(top.dataset.id);
+  }
+  stop();
+  closeSheet();
+  state.mode = mode;
+  LS.set('mode', mode);
+  document.querySelectorAll('#modes .btn').forEach(b =>
+    b.classList.toggle('on', b.dataset.mode === mode));
+
+  const story = mode === 'story';
+  $('#step').style.display = story ? 'none' : 'block';
+  $('#body').style.display = story ? 'block' : 'none';
+  if (story) {
+    const el = state.anchor && state.anchor !== firstSid()
+      && document.querySelector(`#body .sent[data-id="${state.anchor}"]`);
+    if (el) {
+      const y = el.getBoundingClientRect().top + window.scrollY - $('#bar').offsetHeight - 16;
+      window.scrollTo(0, y);
+    }
+    return;
+  }
+  const i = unitsNow().findIndex(u => u.sids.includes(state.anchor));
+  goTo(i < 0 ? 0 : i, false);
+}
+
+// ---------------------------------------------------------------------------
+// Chapter view
+// ---------------------------------------------------------------------------
 function render() {
   const body = $('#body');
   body.textContent = '';
@@ -283,23 +411,26 @@ function render() {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Sentence panel
-// ---------------------------------------------------------------------------
-function select(s, span) {
-  document.querySelectorAll('.sent.sel').forEach(e => e.classList.remove('sel'));
-  span.classList.add('sel');
-  state.sent = {data: s, el: span};
-
-  const en = $('#sen');
-  en.textContent = '';
-  s.words.forEach((w, i) => {
+// Words as tappable spans; returns the spans so playback can light them up.
+function wordRow(el, words, box) {
+  el.textContent = '';
+  return words.map(w => {
     const ws = document.createElement('span');
     ws.className = 'w';
     ws.textContent = w.text;
-    ws.onclick = () => glossFor(w.text);
-    en.appendChild(ws);
+    ws.onclick = () => glossFor(w.text, box);
+    el.appendChild(ws);
+    return ws;
   });
+}
+
+function select(s, span) {
+  stop();
+  document.querySelectorAll('.sent.sel').forEach(e => e.classList.remove('sel'));
+  span.classList.add('sel');
+  setAnchor(s.id);
+  state.sent = {data: s, el: span, els: wordRow($('#sen'), s.words, $('#gloss'))};
+
   const zh = $('#szh');
   if (s.translation) { zh.textContent = s.translation; zh.classList.remove('untranslated'); }
   else { zh.textContent = 'Not translated yet — run scripts/translate.py.';
@@ -315,45 +446,143 @@ function select(s, span) {
 function closeSheet() {
   $('#sheet').classList.remove('open');
   document.querySelectorAll('.sent.sel').forEach(e => e.classList.remove('sel'));
-  stop();
+  if (state.sent) stop();
+  state.sent = null;
 }
 
-// Dictionary keys are bare lowercase words; what is clicked carries the
-// punctuation and spacing of the running text.
-function glossFor(raw) {
-  const key = raw.toLowerCase().replace(/[^a-z'’-]/g, '').replace(/^-+|-+$/g, '');
-  const box = $('#gloss');
-  box.style.display = 'block';
-  const entry = state.dict && state.dict[key];
+function playSheet() {
+  const s = state.sent;
+  if (!s) return;
+  s.el.classList.add('playing');
+  playParts([s.data], s.els, null, $('#audionote'));
+}
+
+// ---------------------------------------------------------------------------
+// Stepper views: one segment / sentence / paragraph at a time
+// ---------------------------------------------------------------------------
+function goTo(i, autoplay = true) {
+  const us = unitsNow();
+  if (!us.length) return;
+  i = Math.max(0, Math.min(us.length - 1, i));
+  stop();
+  state.pos = i;
+  const u = us[i];
+  setAnchor(u.sentenceId);
+
+  state.stepEls = wordRow($('#sten'), u.parts.flatMap(p => p.words), $('#sgloss'));
+  const zh = $('#stzh');
+  zh.style.display = state.stepZh ? '' : 'none';
+  zh.textContent = u.translation || 'Not translated yet.';
+  zh.classList.toggle('untranslated', !u.translation);
+  $('#sgloss').style.display = 'none';
+  $('#sjump').value = i + 1;
+  $('#sjump').max = us.length;
+  $('#stot').textContent = us.length;
+  $('#sprev').disabled = i === 0;
+  $('#snext').disabled = i === us.length - 1;
+  $('#splay').disabled = !u.parts.some(p => p.src || p.audio);
+  if (autoplay) playUnit();
+}
+
+function playUnit() {
+  const u = unitsNow()[state.pos];
+  if (!u) return;
+  // In paragraph view the anchor follows the sentence actually being read.
+  playParts(u.parts, state.stepEls, k => {
+    if (state.mode === 'paragraph') setAnchor(u.parts[k].id);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Dictionary. Keys are bare lowercase words; what is clicked carries the
+// punctuation and spacing of the running text. A miss tries the obvious
+// inflections before giving up.
+// ---------------------------------------------------------------------------
+function lookup(key) {
+  const d = state.dict;
+  if (!d) return null;
+  if (d[key]) return [key, d[key]];
+  const tries = [key.replace(/['’]s$/, ''), key.replace(/['’]$/, ''),
+                 key.replace(/ies$/, 'y'), key.replace(/es$/, ''), key.replace(/s$/, ''),
+                 key.replace(/ied$/, 'y'), key.replace(/ed$/, ''), key.replace(/d$/, ''),
+                 key.replace(/ing$/, ''), key.replace(/ing$/, 'e'),
+                 key.replace(/(.)\1ing$/, '$1'), key.replace(/(.)\1ed$/, '$1')];
+  for (const k of tries) if (k !== key && d[k]) return [k, d[k]];
+  return null;
+}
+
+function glossFor(raw, box) {
+  const key = raw.toLowerCase().replace(/[^a-z'’-]/g, '').replace(/^[-'’]+|-+$/g, '');
   if (!key) { box.style.display = 'none'; return; }
-  if (!entry) {
+  box.style.display = 'block';
+  const hit = lookup(key);
+  if (!hit) {
     box.innerHTML = `<b>${key}</b> <span class="ipa">`
-      + (state.dict ? 'not in the dictionary' : 'dictionary not built yet — run scripts/build_dict.py')
+      + (state.dict ? 'not in the dictionary yet' : 'dictionary not built yet — run scripts/build_dict.py')
       + '</span>';
     return;
   }
-  box.innerHTML = `<b>${key}</b><span class="ipa">${entry.ipa || ''}</span>`
-                + `<span class="zh">${entry.zh || ''}</span>`;
+  const [k, e] = hit;
+  box.innerHTML = `<b>${k}</b><span class="ipa">${e.ipa ? '/' + e.ipa + '/' : ''}</span>`
+                + `<span class="zh">${e.zh || ''}</span>`;
 }
 
 // ---------------------------------------------------------------------------
-// Audio: one file per sentence, or a shared file with [start, end] offsets.
-// Word spans light up from words[].start/end when alignment has run.
+// Audio. One mp3 per chapter; a unit plays exactly its own [start, end] and
+// stops. The file is fetched once as a blob: `python -m http.server` does not
+// answer Range requests, so a plain URL cannot seek and every play would start
+// at 0:00. A blob seeks anywhere, whatever serves it.
 // ---------------------------------------------------------------------------
 const au = $('#au');
-let raf = 0, clip = null;
+const blobs = {};
+let raf = 0, clip = null, token = 0;
 
-function play() {
-  const s = state.sent && state.sent.data;
-  if (!s) return;
-  const src = s.src || s.audio;
-  if (!src) return;
+function audioUrl(src) {
   const url = /^https?:|^\//.test(src) ? src : 'audio/' + src;
-  clip = {s, from: s.start ?? 0, to: s.end ?? null};
-  if (!au.src.endsWith(url)) au.src = url;
-  au.currentTime = clip.from;
-  au.play().catch(() => { $('#audionote').textContent = 'Could not play ' + url; });
-  state.sent.el.classList.add('playing');
+  if (!blobs[url]) blobs[url] = fetch(url)
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); })
+    .then(b => URL.createObjectURL(b))
+    .catch(e => { delete blobs[url]; throw e; });
+  return blobs[url];
+}
+
+async function load(src) {
+  const url = await audioUrl(src);
+  if (au.src !== url) {
+    au.src = url;
+    await new Promise((ok, bad) => {
+      au.addEventListener('loadedmetadata', ok, {once: true});
+      au.addEventListener('error', bad, {once: true});
+    });
+  }
+}
+
+// parts: things with src/start/end/words, played in order.
+// els: one span per word across all parts, for the highlight.
+async function playParts(parts, els, onPart, note) {
+  stop();
+  parts = parts.filter(p => p.src || p.audio);
+  if (!parts.length) return;
+  const my = ++token;
+  const words = [];
+  parts.forEach(p => p.words.forEach(w => words.push({w, el: els[words.length]})));
+  clip = {parts, k: 0, words, onPart, els};
+  setPlayLabels(true);
+  try { await startPart(0, my); }
+  catch (e) {
+    if (my === token) { stop(); if (note) note.textContent = 'Could not load the narration.'; }
+  }
+}
+
+async function startPart(k, my) {
+  const p = clip.parts[k];
+  await load(p.src || p.audio);
+  if (my !== token || !clip) return;
+  clip.k = k;
+  au.defaultPlaybackRate = au.playbackRate = state.rate;
+  au.currentTime = p.start ?? 0;
+  if (clip.onPart) clip.onPart(k);
+  await au.play();
   tick();
 }
 
@@ -361,21 +590,44 @@ function tick() {
   cancelAnimationFrame(raf);
   if (!clip) return;
   const t = au.currentTime;
-  if (clip.to != null && t >= clip.to) { stop(); return; }
-  const words = $('#sen').children;
-  clip.s.words.forEach((w, i) => {
-    const on = w.start != null && t >= w.start && t < w.end;
-    words[i].classList.toggle('on', on);
-  });
+  const p = clip.parts[clip.k];
+  if (p.end != null && t >= p.end) {
+    if (clip.k + 1 < clip.parts.length) {
+      const n = clip.parts[clip.k + 1];
+      // Consecutive sentences sit back to back in the chapter file: carry on
+      // without a seek unless there is a real gap.
+      if ((n.src || n.audio) === (p.src || p.audio) && Math.abs((n.start ?? t) - t) < 0.35) {
+        clip.k++;
+        if (clip.onPart) clip.onPart(clip.k);
+      } else { startPart(clip.k + 1, token).catch(stop); return; }
+    } else { stop(); return; }
+  }
+  for (const {w, el} of clip.words)
+    if (el) el.classList.toggle('on', w.start != null && t >= w.start && t < w.end);
   raf = requestAnimationFrame(tick);
 }
 
 function stop() {
   cancelAnimationFrame(raf);
+  token++;
+  if (clip) clip.els.forEach(e => e && e.classList.remove('on'));
   clip = null;
   au.pause();
   document.querySelectorAll('.playing').forEach(e => e.classList.remove('playing'));
-  [...$('#sen').children].forEach(e => e.classList.remove('on'));
+  setPlayLabels(false);
+}
+
+// Pause keeps the place in the unit; play again resumes rather than restarts.
+function togglePlay(start) {
+  if (clip && !au.paused) { au.pause(); cancelAnimationFrame(raf); setPlayLabels(false); return; }
+  if (clip && au.paused) { au.play(); setPlayLabels(true); tick(); return; }
+  start();
+}
+
+function setPlayLabels(on) {
+  const t = on ? '&#10074;&#10074; Pause' : '&#9654; Play';
+  $('#play').innerHTML = t;
+  $('#splay').innerHTML = t;
 }
 
 au.onended = stop;
@@ -383,10 +635,42 @@ au.onended = stop;
 // ---------------------------------------------------------------------------
 // Chrome
 // ---------------------------------------------------------------------------
-$('#play').onclick = () => (clip ? stop() : play());
+$('#play').onclick = () => togglePlay(playSheet);
+$('#splay').onclick = () => togglePlay(playUnit);
 $('#close').onclick = closeSheet;
+$('#sprev').onclick = () => goTo(state.pos - 1);
+$('#snext').onclick = () => goTo(state.pos + 1);
+$('#sjump').onchange = e => goTo(parseInt(e.target.value, 10) - 1);
+$('#stzhbtn').onclick = () => {
+  state.stepZh = !state.stepZh;
+  LS.set('stepZh', state.stepZh);
+  $('#stzhbtn').classList.toggle('on', state.stepZh);
+  $('#stzh').style.display = state.stepZh ? '' : 'none';
+};
+$('#speed').oninput = e => {
+  state.rate = parseFloat(e.target.value);
+  au.defaultPlaybackRate = au.playbackRate = state.rate;
+  $('#speedv').textContent = state.rate.toFixed(2) + '×';
+  LS.set('rate', state.rate);
+};
+document.querySelectorAll('#modes .btn').forEach(b =>
+  b.onclick = () => { if (b.dataset.mode !== state.mode) setMode(b.dataset.mode); });
+
+// Swipe between units, as on a phone.
+let touch = null;
+$('#step').addEventListener('touchstart', e => {
+  const t = e.changedTouches[0]; touch = {x: t.clientX, y: t.clientY};
+}, {passive: true});
+$('#step').addEventListener('touchend', e => {
+  if (!touch) return;
+  const t = e.changedTouches[0], dx = t.clientX - touch.x, dy = t.clientY - touch.y;
+  touch = null;
+  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) goTo(state.pos + (dx < 0 ? 1 : -1));
+}, {passive: true});
+
 $('#back').onclick = () => {
   closeSheet();
+  stop();
   $('#library').style.display = 'block';
   $('#reader').style.display = 'none';
   $('#bar').style.display = 'none';
@@ -410,8 +694,19 @@ $('#smaller').onclick = () => resize(-1);
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeSheet();
   if ($('#reader').style.display !== 'block') return;
-  if (e.key === 'ArrowRight' && state.idx < state.reg.chapters.length - 1) open(state.idx + 1);
-  if (e.key === 'ArrowLeft' && state.idx > 0) open(state.idx - 1);
+  if (e.target.tagName === 'INPUT' && e.target.type === 'number') return;
+  const step = state.mode !== 'story';
+  if (e.key === ' ') {
+    e.preventDefault();
+    if (step) togglePlay(playUnit);
+    else if (state.sent) togglePlay(playSheet);
+  } else if (e.key === 'ArrowRight') {
+    if (step) goTo(state.pos + 1);
+    else if (state.idx < state.reg.chapters.length - 1) open(state.idx + 1);
+  } else if (e.key === 'ArrowLeft') {
+    if (step) goTo(state.pos - 1);
+    else if (state.idx > 0) open(state.idx - 1);
+  }
 });
 
 boot().catch(e => {

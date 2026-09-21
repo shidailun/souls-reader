@@ -42,9 +42,11 @@ will be. Put it at `build_data/book.epub`, then:
 ```
 python scripts/extract_chapters.py      # or: ... path/to/your.epub
 python scripts/build_pack.py
-python scripts/translate.py --now souls01
 python scripts/narrate.py souls01
 python scripts/align.py souls01
+python scripts/segment.py souls01
+python scripts/translate.py --now souls01
+python scripts/build_dict.py --now --chapter souls01
 ```
 
 That is chapter 1, end to end, in a few minutes. Then serve the reader:
@@ -55,6 +57,11 @@ python -m http.server 8000      # then open http://localhost:8000
 ```
 
 `public/index.html` is the whole reader: one file, no build step, no framework.
+It has the four views `germanic-literature` has. **Segment**, **Sentence** and
+**Paragraph** step through the chapter one unit at a time (‹ › buttons, a jump
+box, ←/→, Space, swipe), and each unit plays just its own audio. **Chapter** is
+the continuous text. Switching views keeps your place. Every word, in every
+view, can be tapped for its IPA and Chinese gloss.
 It reads `public/texts/registry.json`, then a chapter pack on demand. Everything
 it needs is optional — no translation, no dictionary and no audio all degrade to
 a note rather than an error — so the app is usable at every stage of the
@@ -69,9 +76,10 @@ Each stage reads what the last one wrote and can be rerun without undoing it.
 | 1 | `scripts/extract_chapters.py` | EPUB → `build_data/chapters/souls{NN}.txt` | **run** — 31 chapters |
 | 2 | `scripts/build_pack.py` | text → pack JSON + `registry.json` | **run** — 6,434 sentences |
 | 3 | `scripts/translate.py` | fills `translation` (Traditional Chinese, HK) | **chapter 1 only** |
-| 4 | `scripts/build_dict.py` | `public/dict.json` = word → `{ipa, zh}` | **300 commonest words** |
+| 4 | `scripts/build_dict.py` | `public/dict.json` = word → `{ipa, zh}` | **every word in chapter 1**; whole book by batch |
 | 5 | `scripts/narrate.py` | TTS → `public/audio/{code}.mp3` | **chapter 1** — 6:03 |
 | 6 | `scripts/align.py` | forced alignment → sentence and word timings | **chapter 1** — 48/48 |
+| 7 | `scripts/segment.py` | splits sentences into clauses → `segments` | **chapter 1** — 111 segments |
 
 Chapter 1 has been through all six stages and works end to end: tap a sentence,
 hear it, watch the words light up. Chapters 2–31 have text and nothing else —
@@ -133,9 +141,12 @@ and only sentences whose `translation` is still `null` are ever requested.
 
 ### 4. Dictionary
 
-`build_dict.py --now --limit 300` glossed the 300 commonest words; the remaining
-~9,000 are a batch run away. The wordlist is ordered by frequency so a partial
-run covers the words the reader actually meets. This stage defaults to
+The target is simple: every word she might not know is glossed. Chapter 1 is
+complete (`--chapter souls01`), and a plain run sends the whole book's wordlist
+through the Batches API. `--words hunched` glosses a word the moment someone asks
+about it. The reader also tries the obvious inflections before it reports a miss
+("hunches" finds "hunch"). The wordlist is ordered by frequency, so a partial run
+covers the words the reader actually meets. This stage defaults to
 `claude-sonnet-5`: glossing "amplifier" is lookup, not judgement.
 
 ### 5–6. Narration and alignment

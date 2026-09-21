@@ -1,6 +1,8 @@
 {
   "_comment": "Story terms the translation must render the same way every time, ordered by how often the book uses them. Band, album, song and real-world names stay in English on purpose: they are how a reader recognises the metal canon the novel is built out of, and a Chinese rendering of 'Black Sabbath' helps nobody. Invented places, entities and factions get Chinese, because the reader has to follow them as story, not as trivia. Edit freely - this file is the single source of that consistency, and it is fed to every translation request.",
 
+  "basement": "地庫（香港用法，不是地牢）",
+
   "Black Iron Mountain": "黑鐵山",
   "Blind King": "盲王",
   "the Blind King": "盲王",

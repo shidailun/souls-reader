@@ -8,6 +8,8 @@ recover from a tapped token.
 
     python scripts/build_dict.py --now --limit 200    # Messages API, a taste
     python scripts/build_dict.py                      # Batches API, half price
+    python scripts/build_dict.py --now --chapter souls01   # one chapter's words
+    python scripts/build_dict.py --now --words hunched     # a word she asked about
 
 Rerun-safe: only words missing from dict.json are requested, so this can be run
 again after a chapter is added without re-glossing the other 9,000 words.
@@ -65,11 +67,11 @@ def _anthropic_key():
 client = anthropic.Anthropic(api_key=_anthropic_key())
 
 
-def wordlist():
+def wordlist(chapter=None):
     """Every word the book uses, commonest first - so a --limit run glosses the
     words the reader will actually meet first rather than an alphabetical slice."""
     c = Counter()
-    for f in sorted(SRC.glob('souls*.txt')):
+    for f in sorted(SRC.glob(f'{chapter}.txt' if chapter else 'souls*.txt')):
         c.update(w.lower() for w in
                  re.findall(r"[A-Za-z][A-Za-z'’-]*", f.read_text(encoding='utf-8')))
     return [w for w, _ in c.most_common() if len(w) >= MIN_LEN]
@@ -166,8 +168,18 @@ def main():
         limit = int(argv[i + 1])
         del argv[i:i + 2]
 
+    chapter = words = None
+    if '--chapter' in argv:
+        i = argv.index('--chapter')
+        chapter = argv[i + 1]
+        del argv[i:i + 2]
+    if '--words' in argv:
+        i = argv.index('--words')
+        words = [w.lower() for w in argv[i + 1:] if not w.startswith('--')]
+        del argv[i:i + 1 + len(words)]
+
     have = load()
-    todo = [w for w in wordlist() if w not in have]
+    todo = [w for w in (words or wordlist(chapter)) if w not in have]
     if limit:
         todo = todo[:limit]
     print(f'model: {MODEL}   have {len(have)}   to gloss {len(todo)}')
