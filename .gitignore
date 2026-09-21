@@ -1,0 +1,22 @@
+# The novel. This repository is CODE ONLY - the text of a copyrighted book, and
+# anything derived from it (translations, narration, the extracted chapters),
+# stays on the machine that has a legitimate copy of the epub. Anyone cloning
+# this runs scripts/extract_chapters.py against their own copy.
+build_data/chapters/
+build_data/tts/
+src/data/*.json
+public/texts/*.json
+public/audio/
+public/cover.jpg
+public/dict.json
+
+# Pipeline state and scratch
+build_data/translate_state.json
+build_data/dict_state.json
+*.bak
+*.mp3
+
+# Python
+__pycache__/
+*.pyc
+.venv/

@@ -1,0 +1,9 @@
+{
+  "_comment": "One entry per chapter: the literal replacement for each U+FFFC dropcap gap, in order. Only chapters whose gap the builder cannot settle from the book's own bigrams need to appear here.",
+  "souls08": [
+    "“H"
+  ],
+  "souls18": [
+    "O"
+  ]
+}

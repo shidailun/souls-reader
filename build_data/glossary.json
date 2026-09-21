@@ -1,0 +1,23 @@
+{
+  "_comment": "Story terms the translation must render the same way every time, ordered by how often the book uses them. Band, album, song and real-world names stay in English on purpose: they are how a reader recognises the metal canon the novel is built out of, and a Chinese rendering of 'Black Sabbath' helps nobody. Invented places, entities and factions get Chinese, because the reader has to follow them as story, not as trivia. Edit freely - this file is the single source of that consistency, and it is fed to every translation request.",
+
+  "Black Iron Mountain": "黑鐵山",
+  "Blind King": "盲王",
+  "the Blind King": "盲王",
+  "Hundred Handed Eye": "百手之眼",
+  "Well in the Woods": "林中之井",
+  "Witch House": "女巫屋",
+  "Insect Narthex": "蟲之前廳",
+  "Special Ones": "特選之人",
+  "Sporting House": "尋歡屋",
+
+  "Dürt Würk": "Dürt Würk（樂隊名保留原文）",
+  "Koffin": "Koffin（樂隊名保留原文）",
+  "Troglodyte": "Troglodyte（專輯名保留原文）",
+  "Hellstock": "Hellstock（音樂節名保留原文）",
+  "Black Sabbath": "Black Sabbath（保留原文）",
+
+  "Kris Pulaski": "Kris Pulaski（人名保留原文）",
+  "Terry Hunt": "Terry Hunt（人名保留原文）",
+  "Scottie Rocket": "Scottie Rocket（人名保留原文）"
+}

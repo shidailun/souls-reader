@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>We Sold Our Souls · Reader</title>
+<!-- Guitar icon, drawn here rather than shipped as a file so the reader stays
+     one file the student can open, edit and hand around. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%23e8503a' d='M40 6l6 6-8 8 4 4-9 9a13 13 0 11-6-6l9-9-4-4 8-8zM22 38a7 7 0 100 14 7 7 0 000-14zm0 4a3 3 0 110 6 3 3 0 010-6z'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#0b0b0d; --panel:#141417; --line:#26262b; --ink:#ece9e4;
+    --dim:#8d8a86; --hot:#e8503a; --zh:#7fd4c1;
+    --serif:"Iowan Old Style","Palatino Linotype",Georgia,serif;
+    --han:"Noto Serif TC","Source Han Serif TC","PMingLiU",serif;
+    --size:20px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink); font-family:var(--serif);
+    -webkit-text-size-adjust:100%;
+  }
+  a{color:var(--hot)}
+  .wrap{max-width:46rem;margin:0 auto;padding:0 16px}
+
+  /* ---------- library ---------- */
+  #library{display:block}
+  .hero{position:relative;padding:40px 0 28px;display:flex;gap:28px;align-items:flex-start}
+  .hero img{
+    width:210px;flex:0 0 210px;border-radius:4px;display:block;
+    box-shadow:0 18px 50px rgba(0,0,0,.65), 0 0 0 1px #000;
+  }
+  .hero h1{font-size:2.1rem;line-height:1.1;margin:.1em 0 .1em}
+  .hero .zh{font-family:var(--han);color:var(--zh);font-size:1.25rem;margin:0 0 .5em}
+  .hero .by{color:var(--dim);margin:0 0 1em;font-size:1rem}
+  .hero .note{color:var(--dim);font-size:.85rem;line-height:1.5;max-width:22rem}
+  .brand{display:flex;align-items:center;gap:10px;padding-top:22px}
+  .brand svg{width:26px;height:26px;fill:var(--hot)}
+  .brand span{letter-spacing:.22em;text-transform:uppercase;font-size:.7rem;color:var(--dim)}
+
+  .chapters{list-style:none;margin:8px 0 60px;padding:0;
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(15rem,1fr));gap:1px;
+    background:var(--line);border:1px solid var(--line)}
+  .chapters li{background:var(--panel)}
+  .chapters button{
+    width:100%;text-align:left;background:none;border:0;color:inherit;
+    font:inherit;padding:14px 16px;cursor:pointer;display:flex;gap:12px;align-items:baseline;
+  }
+  .chapters button:hover{background:#1b1b1f}
+  .chapters .n{color:var(--hot);font-size:.8rem;min-width:1.6em;font-variant-numeric:tabular-nums}
+  .chapters .t{flex:1}
+  .chapters .meta{color:var(--dim);font-size:.72rem;white-space:nowrap}
+  .chapters .done{color:var(--zh)}
+
+  /* ---------- toolbar ---------- */
+  #bar{position:sticky;top:0;z-index:5;background:rgba(11,11,13,.94);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line);display:none}
+  #bar .wrap{display:flex;align-items:center;gap:8px;height:48px}
+  #bar .ttl{flex:1;font-size:.85rem;color:var(--dim);white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .btn{background:none;border:1px solid var(--line);color:var(--dim);
+    font:inherit;font-size:.75rem;border-radius:3px;padding:5px 9px;cursor:pointer}
+  .btn:hover{color:var(--ink);border-color:#3a3a40}
+  .btn.on{color:var(--bg);background:var(--hot);border-color:var(--hot)}
+
+  /* ---------- reader ---------- */
+  #reader{display:none;padding-bottom:45vh}
+  .chead{padding:38px 0 26px;border-bottom:1px solid var(--line);margin-bottom:26px}
+  .chead .n{color:var(--hot);letter-spacing:.2em;font-size:.72rem;text-transform:uppercase}
+  .chead h2{font-size:1.9rem;margin:.25em 0 .1em;line-height:1.15}
+  .chead .zh{font-family:var(--han);color:var(--zh);font-size:1rem;margin:0}
+  #body p{font-size:var(--size);line-height:1.66;margin:0 0 1.15em;text-align:left}
+  #body p:first-of-type::first-letter{
+    float:left;font-size:3.1em;line-height:.82;padding:.06em .09em 0 0;color:var(--hot);
+  }
+  .sent{cursor:pointer;border-radius:2px;transition:background .12s}
+  .sent:hover{background:#1e1e23}
+  .sent.sel{background:#2c1a16;box-shadow:0 0 0 1px #45231c}
+  .sent.playing{background:#33201a}
+  .w.on{color:var(--hot)}
+  .zhline{display:block;font-family:var(--han);color:var(--zh);font-size:calc(var(--size) * .82);
+    line-height:1.7;margin:.35em 0 0;padding-left:.8em;border-left:2px solid #24443d}
+  .untranslated{color:var(--dim);font-style:italic}
+  .nav{display:flex;justify-content:space-between;gap:12px;margin:40px 0 20px}
+
+  /* ---------- sentence sheet ---------- */
+  #sheet{position:fixed;left:0;right:0;bottom:0;z-index:9;transform:translateY(102%);
+    transition:transform .18s ease-out;background:var(--panel);
+    border-top:1px solid var(--line);box-shadow:0 -20px 50px rgba(0,0,0,.6);
+    max-height:52vh;overflow:auto}
+  #sheet.open{transform:none}
+  #sheet .wrap{padding:16px 16px 22px}
+  #sheet .en{font-size:1.02rem;line-height:1.6;margin:0 0 .6em}
+  #sheet .en .w{cursor:pointer;border-radius:2px}
+  #sheet .en .w:hover{background:#2a2a30}
+  #sheet .zh{font-family:var(--han);color:var(--zh);font-size:1.12rem;line-height:1.7;margin:0}
+  #sheet .row{display:flex;gap:8px;align-items:center;margin-top:14px}
+  #sheet .x{position:absolute;right:10px;top:8px}
+  #gloss{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);
+    font-size:.92rem;display:none}
+  #gloss b{color:var(--ink)}
+  #gloss .ipa{color:var(--dim);font-family:var(--serif);margin-left:.4em}
+  #gloss .zh{font-family:var(--han);color:var(--zh);display:block;margin-top:.25em}
+
+  @media (max-width:640px){
+    .hero{flex-direction:column;gap:18px;padding-top:26px}
+    .hero img{width:56%;max-width:210px;flex:none}
+    :root{--size:19px}
+  }
+</style>
+</head>
+<body>
+
+<div id="library">
+  <div class="wrap">
+    <div class="brand">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M40 6l6 6-8 8 4 4-9 9a13 13 0 11-6-6l9-9-4-4 8-8zM22 38a7 7 0 100 14 7 7 0 000-14zm0 4a3 3 0 110 6 3 3 0 010-6z"/></svg>
+      <span>Souls Reader</span>
+    </div>
+    <div class="hero">
+      <img id="cover" src="cover.jpg" alt="Cover of We Sold Our Souls">
+      <div>
+        <h1 id="btitle">&nbsp;</h1>
+        <p class="zh" id="bzh"></p>
+        <p class="by" id="bby"></p>
+        <p class="note">
+          Tap any sentence for the Chinese. Inside the panel, tap a word for its
+          pronunciation and gloss. Where narration exists, the sentence plays and
+          the words light up as they are spoken.
+        </p>
+      </div>
+    </div>
+    <ul class="chapters" id="chapters"></ul>
+  </div>
+</div>
+
+<div id="bar">
+  <div class="wrap">
+    <button class="btn" id="back">&larr; Chapters</button>
+    <span class="ttl" id="bartitle"></span>
+    <button class="btn" id="tzh" title="Show the Chinese under every paragraph">中</button>
+    <button class="btn" id="smaller">A&minus;</button>
+    <button class="btn" id="bigger">A+</button>
+  </div>
+</div>
+
+<div id="reader">
+  <div class="wrap">
+    <div class="chead">
+      <div class="n" id="cnum"></div>
+      <h2 id="ctitle"></h2>
+      <p class="zh" id="czh"></p>
+    </div>
+    <div id="body"></div>
+    <div class="nav">
+      <button class="btn" id="prev">&larr; Previous</button>
+      <button class="btn" id="next">Next &rarr;</button>
+    </div>
+  </div>
+</div>
+
+<div id="sheet">
+  <div class="wrap">
+    <button class="btn x" id="close">&times;</button>
+    <p class="en" id="sen"></p>
+    <p class="zh" id="szh"></p>
+    <div class="row">
+      <button class="btn" id="play">&#9654; Play</button>
+      <span class="ttl" id="audionote" style="color:var(--dim);font-size:.75rem"></span>
+    </div>
+    <div id="gloss"></div>
+  </div>
+</div>
+
+<audio id="au" preload="none"></audio>
+
+<script>
+// ---------------------------------------------------------------------------
+// A whole reader in one file: no build step, no framework, no server beyond a
+// static one. It reads exactly the pack format the pipeline writes, so the same
+// JSON drops into the React app later without a conversion step.
+//
+//   cd public && python -m http.server 8000   ->   http://localhost:8000
+// ---------------------------------------------------------------------------
+const $ = s => document.querySelector(s);
+const state = {reg:null, dict:null, pack:null, idx:0, sent:null, showZh:false};
+
+const LS = {
+  get: (k, d) => { try { return JSON.parse(localStorage.getItem('souls.'+k)) ?? d; }
+                   catch (e) { return d; } },
+  set: (k, v) => { try { localStorage.setItem('souls.'+k, JSON.stringify(v)); }
+                   catch (e) {} },
+};
+
+// Chapter titles arrive as "We Sold Our Souls · True As Steel"; the reader has
+// the book title everywhere already, so only the part after the dot is wanted.
+const shortTitle = t => t.includes(' · ') ? t.split(' · ').pop() : t;
+
+async function boot() {
+  state.reg = await (await fetch('texts/registry.json')).json();
+  // The dictionary is a later pipeline stage; the reader must work without it.
+  try { state.dict = await (await fetch('dict.json')).json(); } catch (e) { state.dict = null; }
+
+  const work = state.reg.works[0];
+  $('#btitle').textContent = work.title;
+  $('#bzh').textContent = work.zh || '';
+  $('#bby').textContent = work.author;
+  if (work.cover) $('#cover').src = work.cover;
+  document.title = work.title + ' · Reader';
+
+  const ul = $('#chapters');
+  state.reg.chapters.forEach((c, i) => {
+    const li = document.createElement('li');
+    const b = document.createElement('button');
+    b.innerHTML = `<span class="n">${String(i + 1).padStart(2, '0')}</span>`
+                + `<span class="t">${shortTitle(c.title)}</span>`
+                + `<span class="meta">${c.sents} sent.</span>`;
+    b.onclick = () => open(i);
+    li.appendChild(b);
+    ul.appendChild(li);
+  });
+
+  const size = LS.get('size', null);
+  if (size) document.documentElement.style.setProperty('--size', size + 'px');
+  state.showZh = LS.get('showZh', false);
+  $('#tzh').classList.toggle('on', state.showZh);
+
+  const last = LS.get('last', null);
+  if (last !== null && state.reg.chapters[last]) open(last);
+}
+
+async function open(i) {
+  const c = state.reg.chapters[i];
+  if (!c) return;
+  state.idx = i;
+  state.pack = await (await fetch(`texts/${c.id}.json`)).json();
+  LS.set('last', i);
+
+  $('#cnum').textContent = `Chapter ${String(i + 1).padStart(2, '0')}`;
+  $('#ctitle').textContent = shortTitle(state.pack.title);
+  $('#czh').textContent = state.pack.titleTranslation || '';
+  $('#bartitle').textContent = shortTitle(state.pack.title);
+  $('#library').style.display = 'none';
+  $('#reader').style.display = 'block';
+  $('#bar').style.display = 'block';
+  $('#prev').disabled = i === 0;
+  $('#next').disabled = i === state.reg.chapters.length - 1;
+  render();
+  closeSheet();
+  window.scrollTo(0, 0);
+}
+
+function render() {
+  const body = $('#body');
+  body.textContent = '';
+  for (const para of state.pack.paragraphs) {
+    const p = document.createElement('p');
+    for (const s of para.sentences) {
+      const span = document.createElement('span');
+      span.className = 'sent';
+      span.dataset.id = s.id;
+      // Words are their own spans so forced-alignment timings have something to
+      // highlight; the trailing space lives inside the span, as in the pack.
+      for (const w of s.words) {
+        const ws = document.createElement('span');
+        ws.className = 'w';
+        ws.textContent = w.text;
+        span.appendChild(ws);
+      }
+      span.onclick = () => select(s, span);
+      p.appendChild(span);
+    }
+    if (state.showZh) {
+      const zh = document.createElement('span');
+      zh.className = 'zhline';
+      const done = para.sentences.filter(s => s.translation);
+      if (done.length) zh.textContent = done.map(s => s.translation).join('');
+      else { zh.className += ' untranslated'; zh.textContent = 'Not translated yet.'; }
+      p.appendChild(zh);
+    }
+    body.appendChild(p);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sentence panel
+// ---------------------------------------------------------------------------
+function select(s, span) {
+  document.querySelectorAll('.sent.sel').forEach(e => e.classList.remove('sel'));
+  span.classList.add('sel');
+  state.sent = {data: s, el: span};
+
+  const en = $('#sen');
+  en.textContent = '';
+  s.words.forEach((w, i) => {
+    const ws = document.createElement('span');
+    ws.className = 'w';
+    ws.textContent = w.text;
+    ws.onclick = () => glossFor(w.text);
+    en.appendChild(ws);
+  });
+  const zh = $('#szh');
+  if (s.translation) { zh.textContent = s.translation; zh.classList.remove('untranslated'); }
+  else { zh.textContent = 'Not translated yet — run scripts/translate.py.';
+         zh.classList.add('untranslated'); }
+
+  const src = s.src || s.audio;
+  $('#play').style.display = src ? '' : 'none';
+  $('#audionote').textContent = src ? '' : 'No narration yet — run scripts/narrate.py.';
+  $('#gloss').style.display = 'none';
+  $('#sheet').classList.add('open');
+}
+
+function closeSheet() {
+  $('#sheet').classList.remove('open');
+  document.querySelectorAll('.sent.sel').forEach(e => e.classList.remove('sel'));
+  stop();
+}
+
+// Dictionary keys are bare lowercase words; what is clicked carries the
+// punctuation and spacing of the running text.
+function glossFor(raw) {
+  const key = raw.toLowerCase().replace(/[^a-z'’-]/g, '').replace(/^-+|-+$/g, '');
+  const box = $('#gloss');
+  box.style.display = 'block';
+  const entry = state.dict && state.dict[key];
+  if (!key) { box.style.display = 'none'; return; }
+  if (!entry) {
+    box.innerHTML = `<b>${key}</b> <span class="ipa">`
+      + (state.dict ? 'not in the dictionary' : 'dictionary not built yet — run scripts/build_dict.py')
+      + '</span>';
+    return;
+  }
+  box.innerHTML = `<b>${key}</b><span class="ipa">${entry.ipa || ''}</span>`
+                + `<span class="zh">${entry.zh || ''}</span>`;
+}
+
+// ---------------------------------------------------------------------------
+// Audio: one file per sentence, or a shared file with [start, end] offsets.
+// Word spans light up from words[].start/end when alignment has run.
+// ---------------------------------------------------------------------------
+const au = $('#au');
+let raf = 0, clip = null;
+
+function play() {
+  const s = state.sent && state.sent.data;
+  if (!s) return;
+  const src = s.src || s.audio;
+  if (!src) return;
+  const url = /^https?:|^\//.test(src) ? src : 'audio/' + src;
+  clip = {s, from: s.start ?? 0, to: s.end ?? null};
+  if (!au.src.endsWith(url)) au.src = url;
+  au.currentTime = clip.from;
+  au.play().catch(() => { $('#audionote').textContent = 'Could not play ' + url; });
+  state.sent.el.classList.add('playing');
+  tick();
+}
+
+function tick() {
+  cancelAnimationFrame(raf);
+  if (!clip) return;
+  const t = au.currentTime;
+  if (clip.to != null && t >= clip.to) { stop(); return; }
+  const words = $('#sen').children;
+  clip.s.words.forEach((w, i) => {
+    const on = w.start != null && t >= w.start && t < w.end;
+    words[i].classList.toggle('on', on);
+  });
+  raf = requestAnimationFrame(tick);
+}
+
+function stop() {
+  cancelAnimationFrame(raf);
+  clip = null;
+  au.pause();
+  document.querySelectorAll('.playing').forEach(e => e.classList.remove('playing'));
+  [...$('#sen').children].forEach(e => e.classList.remove('on'));
+}
+
+au.onended = stop;
+
+// ---------------------------------------------------------------------------
+// Chrome
+// ---------------------------------------------------------------------------
+$('#play').onclick = () => (clip ? stop() : play());
+$('#close').onclick = closeSheet;
+$('#back').onclick = () => {
+  closeSheet();
+  $('#library').style.display = 'block';
+  $('#reader').style.display = 'none';
+  $('#bar').style.display = 'none';
+};
+$('#prev').onclick = () => open(state.idx - 1);
+$('#next').onclick = () => open(state.idx + 1);
+$('#tzh').onclick = () => {
+  state.showZh = !state.showZh;
+  LS.set('showZh', state.showZh);
+  $('#tzh').classList.toggle('on', state.showZh);
+  render();
+};
+function resize(d) {
+  const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--size'));
+  const next = Math.min(30, Math.max(15, cur + d));
+  document.documentElement.style.setProperty('--size', next + 'px');
+  LS.set('size', next);
+}
+$('#bigger').onclick = () => resize(1);
+$('#smaller').onclick = () => resize(-1);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeSheet();
+  if ($('#reader').style.display !== 'block') return;
+  if (e.key === 'ArrowRight' && state.idx < state.reg.chapters.length - 1) open(state.idx + 1);
+  if (e.key === 'ArrowLeft' && state.idx > 0) open(state.idx - 1);
+});
+
+boot().catch(e => {
+  document.body.innerHTML = '<div class="wrap"><p style="padding:40px 0">'
+    + 'Could not load the texts: ' + e
+    + '<br><br>Serve this folder rather than opening the file directly:<br>'
+    + '<code>cd public &amp;&amp; python -m http.server 8000</code></p></div>';
+});
+</script>
+</body>
+</html>
