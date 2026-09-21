@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Souls Reader</title>
+<!-- Installable: on an iPhone, Safari > Share > Add to Home Screen. -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Souls">
+<meta name="theme-color" content="#0b0b0d">
 <!-- Guitar icon, drawn here rather than shipped as a file so the reader stays
      one file the student can open, edit and hand around. -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='%23e8503a' d='M40 6l6 6-8 8 4 4-9 9a13 13 0 11-6-6l9-9-4-4 8-8zM22 38a7 7 0 100 14 7 7 0 000-14zm0 4a3 3 0 110 6 3 3 0 010-6z'/%3E%3C/svg%3E">
@@ -20,6 +28,7 @@
   body{
     background:var(--bg); color:var(--ink); font-family:var(--serif);
     -webkit-text-size-adjust:100%;
+    padding-bottom:env(safe-area-inset-bottom);   /* the iPhone home bar */
   }
   a{color:var(--hot)}
   .wrap{max-width:46rem;margin:0 auto;padding:0 16px}
@@ -88,7 +97,7 @@
   #sheet{position:fixed;left:0;right:0;bottom:0;z-index:9;transform:translateY(102%);
     transition:transform .18s ease-out;background:var(--panel);
     border-top:1px solid var(--line);box-shadow:0 -20px 50px rgba(0,0,0,.6);
-    max-height:52vh;overflow:auto}
+    max-height:52vh;overflow:auto;padding-bottom:env(safe-area-inset-bottom)}
   #sheet.open{transform:none}
   #sheet .wrap{padding:16px 16px 22px}
   #sheet .en{font-size:1.02rem;line-height:1.6;margin:0 0 .6em}
@@ -211,6 +220,7 @@
     </div>
     <div class="libbar">
       <button class="btn" id="revbtn">Review</button>
+      <button class="btn" id="offbtn" hidden>Save for offline</button>
       <button class="btn" id="lockbtn" hidden>Lock</button>
     </div>
     <ul class="chapters" id="chapters"></ul>
@@ -361,7 +371,7 @@ function screen(name) {
 // fetch locally, fetch + decrypt when the site is sealed. File layout on a
 // sealed site: data/<path>.bin = 12-byte nonce | AES-GCM ciphertext+tag.
 // ---------------------------------------------------------------------------
-const vault = {key: null, meta: null};
+const vault = {key: null, meta: null, index: null};
 const b64 = {
   enc: buf => { let s = ''; new Uint8Array(buf).forEach(c => s += String.fromCharCode(c)); return btoa(s); },
   dec: s => Uint8Array.from(atob(s), c => c.charCodeAt(0)),
@@ -383,8 +393,13 @@ async function deriveKey(pw, meta) {
 // A key is right if it opens the check blob; AES-GCM refuses anything else.
 const tryKey = key => unseal(key, b64.dec(vault.meta.check)).then(() => true, () => false);
 
+// The ?v= hash (data/index.json) lets the offline cache keep a file for good
+// and still see a republished one as new: see sw.js.
+const sealedUrl = path => 'data/' + path + '.bin'
+  + (vault.index && vault.index[path] ? '?v=' + vault.index[path] : '');
+
 async function getBytes(path) {
-  const r = await fetch(vault.key ? 'data/' + path + '.bin' : path);
+  const r = await fetch(vault.key ? sealedUrl(path) : path);
   if (!r.ok) throw new Error(path + ': ' + r.status);
   const buf = await r.arrayBuffer();
   return vault.key ? unseal(vault.key, buf) : buf;
@@ -399,6 +414,14 @@ async function start() {
     vault.meta = r.ok ? await r.json() : null;
   } catch (e) { vault.meta = null; }
   if (!vault.meta) return boot();
+  try {
+    const r = await fetch('data/index.json', {cache: 'no-store'});
+    vault.index = r.ok ? await r.json() : null;
+  } catch (e) { vault.index = null; }
+  // Only the published site is cached for offline; a local copy is being
+  // edited and must never be served stale.
+  if ('serviceWorker' in navigator)
+    navigator.serviceWorker.register('sw.js').catch(() => {});
 
   const saved = LS.get('key', null);
   if (saved) {
@@ -439,6 +462,7 @@ async function boot() {
   getBlobUrl(work.cover || 'cover.jpg', 'image/jpeg').then(u => $('#cover').src = u, () => {});
   document.title = work.title + ' · Reader';
   $('#lockbtn').hidden = !vault.key;
+  offline();
 
   const ul = $('#chapters');
   ul.textContent = '';
@@ -835,6 +859,30 @@ function fmtMins(m) {
 
 const isDue = c => c.status === 'learning' && (!c.due || new Date(c.due) <= new Date());
 const dueWords = () => Object.entries(vocab.all()).filter(([, c]) => isDue(c)).map(([w]) => w);
+
+// Save for offline: fetch every sealed file once, so the service worker holds
+// the whole book (text and audio) on the phone. Shown only on the published
+// site, once the worker is running.
+async function offline() {
+  const btn = $('#offbtn');
+  if (!vault.index || !('serviceWorker' in navigator) || !window.caches) return;
+  const reg = await navigator.serviceWorker.ready;
+  const urls = Object.keys(vault.index).map(sealedUrl);
+  if (reg.active) reg.active.postMessage({keep: urls});
+  const c = await caches.open('souls-data');
+  const have = (await Promise.all(urls.map(u => c.match(u)))).filter(Boolean).length;
+  btn.hidden = false;
+  btn.textContent = have === urls.length ? 'Saved for offline ✓' : 'Save for offline';
+  btn.onclick = async () => {
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
+    let n = 0;
+    for (const u of urls) {
+      btn.textContent = `Saving ${++n}/${urls.length}…`;
+      try { await fetch(u); } catch (e) { btn.textContent = 'Offline save stopped: no connection'; return; }
+    }
+    btn.textContent = 'Saved for offline ✓';
+  };
+}
 
 function updateDue() {
   const n = dueWords().length;

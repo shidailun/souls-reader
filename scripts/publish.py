@@ -22,7 +22,7 @@ run align.py and segment.py for that chapter, then run this. Each publish is a
 fresh single-commit gh-pages branch, force-pushed, so old ciphertext does not
 pile up in the history.
 """
-import base64, json, os, secrets, shutil, subprocess, sys, io, tempfile
+import base64, hashlib, json, os, secrets, shutil, subprocess, sys, io, tempfile
 from pathlib import Path
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -76,19 +76,29 @@ def build(s):
         shutil.rmtree(SITE)
     SITE.mkdir(parents=True)
     shutil.copyfile(PUB / 'index.html', SITE / 'index.html')
+    # The installable app: manifest, offline worker, home-screen icons. Only
+    # the icons are images, and they are a drawn guitar, not the book's cover.
+    for name in ('manifest.webmanifest', 'sw.js'):
+        shutil.copyfile(PUB / name, SITE / name)
+    shutil.copytree(PUB / 'icons', SITE / 'icons')
     (SITE / '.nojekyll').write_text('', encoding='utf-8')
     (SITE / 'robots.txt').write_text('User-agent: *\nDisallow: /\n', encoding='utf-8')
     (SITE / 'sealed.json').write_text(json.dumps({
         'salt': s['salt'], 'iter': ITER,
         'check': base64.b64encode(seal(aes, b'souls-ok')).decode(),
     }), encoding='utf-8')
-    total = 0
+    total, index = 0, {}
     for f in files():
         rel = f.relative_to(PUB).as_posix()
         dest = SITE / 'data' / (rel + '.bin')
         dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(seal(aes, f.read_bytes()))
+        data = f.read_bytes()
+        dest.write_bytes(seal(aes, data))
         total += dest.stat().st_size
+        # A version tag per file: sw.js caches data/<path>.bin?v=<tag> for good,
+        # so the tag must change exactly when the content (or password) does.
+        index[rel] = hashlib.sha256(s['salt'].encode() + data).hexdigest()[:12]
+    (SITE / 'data' / 'index.json').write_text(json.dumps(index), encoding='utf-8')
     n = len(files())
     print(f'sealed {n} files, {total / 1e6:.1f} MB -> {SITE.relative_to(ROOT)}')
 
