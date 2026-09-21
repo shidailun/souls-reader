@@ -68,7 +68,7 @@
   #reader{display:none;padding-bottom:45vh}
   .chead{padding:38px 0 26px;border-bottom:1px solid var(--line);margin-bottom:26px}
   .chead .n{color:var(--hot);letter-spacing:.2em;font-size:.72rem;text-transform:uppercase}
-  .chead h2{font-size:1.9rem;margin:.25em 0 .1em;line-height:1.15}
+  .chead h2{cursor:pointer;font-size:1.9rem;margin:.25em 0 .1em;line-height:1.15}
   .chead .zh{font-family:var(--han);color:var(--zh);font-size:1rem;margin:0}
   #body p{font-size:var(--size);line-height:1.66;margin:0 0 1.15em;text-align:left}
   #body p:first-of-type::first-letter{
@@ -526,6 +526,7 @@ async function open(i) {
   $('#cnum').textContent = `Chapter ${String(i + 1).padStart(2, '0')}`;
   $('#ctitle').textContent = shortTitle(state.pack.title);
   $('#czh').textContent = state.pack.titleTranslation || '';
+  $('#czh').style.display = 'none';          // on demand: tap the title
   $('#bartitle').textContent = shortTitle(state.pack.title);
   screen('reader');
   $('#prev').disabled = i === 0;
@@ -1098,6 +1099,7 @@ au.onended = stop;
 $('#play').onclick = () => togglePlay(playSheet);
 $('#splay').onclick = () => togglePlay(playUnit);
 $('#close').onclick = closeSheet;
+$('#ctitle').onclick = () => { const z = $('#czh'); z.style.display = z.style.display === 'none' ? '' : 'none'; };
 $('#sprev').onclick = () => goTo(state.pos - 1);
 $('#snext').onclick = () => goTo(state.pos + 1);
 $('#sjump').onchange = e => goTo(parseInt(e.target.value, 10) - 1);
