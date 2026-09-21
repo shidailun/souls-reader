@@ -34,7 +34,7 @@ STATE = ROOT / 'build_data' / 'dict_state.json'
 
 MODEL = 'claude-sonnet-5'
 CHUNK = 50                      # words per request; 100 truncated replies
-MIN_LEN = 2
+MIN_LEN = 1                     # 'a' and 'I' are words too
 
 SYSTEM = (
     "You are building a learner dictionary for a Hong Kong university student "
@@ -73,7 +73,7 @@ def wordlist(chapter=None):
     c = Counter()
     for f in sorted(SRC.glob(f'{chapter}.txt' if chapter else 'souls*.txt')):
         c.update(w.lower() for w in
-                 re.findall(r"[A-Za-z][A-Za-z'’-]*", f.read_text(encoding='utf-8')))
+                 re.findall(r"[^\W\d_][^\W\d_'’-]*", f.read_text(encoding='utf-8')))
     return [w for w, _ in c.most_common() if len(w) >= MIN_LEN]
 
 

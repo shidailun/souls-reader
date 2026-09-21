@@ -152,6 +152,18 @@ def align(code):
         for w, (a, b) in zip(s['words'], distribute(s['words'], st, en)):
             w['start'], w['end'] = a, b
 
+    # Re-read and copy only the timings across: translate.py may have written
+    # this pack while the alignment ran.
+    timed = {s['id']: s for s in sents}
+    pack = json.loads(jf.read_text(encoding='utf-8'))
+    for p in pack['paragraphs']:
+        for s in p['sentences']:
+            t = timed.get(s['id'])
+            if not t or len(t['words']) != len(s['words']):
+                continue
+            s['start'], s['end'], s['srcDur'] = t['start'], t['end'], t['srcDur']
+            for w, tw in zip(s['words'], t['words']):
+                w['start'], w['end'] = tw['start'], tw['end']
     jf.write_text(json.dumps(pack, ensure_ascii=False, indent=1), encoding='utf-8')
     (PUB / f'{code}.json').write_text(
         json.dumps(pack, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')

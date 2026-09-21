@@ -194,7 +194,10 @@ def narrate(code, engine, voice, force):
     concat(parts, dest)
     dur = round(duration(dest))
 
-    for s in sents:
+    # Re-read before writing: translate.py may have filled translations into
+    # this pack while the audio was being synthesised.
+    pack = json.loads((DATA / f'{code}.json').read_text(encoding='utf-8'))
+    for s in sentences(pack):
         s['src'] = f'{code}.mp3'
         s['audio'] = code
         s['srcDur'] = dur

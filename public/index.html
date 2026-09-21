@@ -604,6 +604,21 @@ function render() {
   }
 }
 
+// "will—until" is one token in the pack (the timings are per token) but two
+// words to her: each side of a dash gets its own tap target inside the span.
+function tappable(ws, text, gloss) {
+  const parts = text.split(/([—–…/]+)/);
+  if (parts.length === 1) { ws.textContent = text; ws.onclick = () => gloss(text); return; }
+  ws.textContent = '';
+  for (const part of parts) {
+    const sp = document.createElement('span');
+    sp.textContent = part;
+    if (!/^[—–…/]+$/.test(part) && clean(part))
+      sp.onclick = e => { e.stopPropagation(); gloss(part); };
+    ws.appendChild(sp);
+  }
+}
+
 // Words as tappable spans; returns the spans so playback can light them up.
 // Each word knows its sentence, so a tap can file the word with its context.
 function wordRow(el, parts, box) {
@@ -615,8 +630,7 @@ function wordRow(el, parts, box) {
     for (const w of part.words) {
       const ws = document.createElement('span');
       ws.className = 'w' + (isLearning(w.text) ? ' lrn' : '');
-      ws.textContent = w.text;
-      ws.onclick = () => glossFor(w.text, box, {code: state.pack.id, sid}, ws);
+      tappable(ws, w.text, piece => glossFor(piece, box, {code: state.pack.id, sid}, ws));
       el.appendChild(ws);
       out.push(ws);
     }
@@ -699,7 +713,8 @@ function playUnit() {
 // punctuation and spacing of the running text. A miss tries the obvious
 // inflections before giving up.
 // ---------------------------------------------------------------------------
-const clean = raw => raw.toLowerCase().replace(/[^a-z'’-]/g, '').replace(/^[-'’]+|[-'’]+$/g, '');
+const clean = raw => raw.toLowerCase().normalize('NFC')
+  .replace(/[^\p{L}'’-]/gu, '').replace(/^[-'’]+|[-'’]+$/g, '');
 
 function lookup(key) {
   const d = state.dict;
@@ -708,7 +723,7 @@ function lookup(key) {
   const tries = [key.replace(/['’]s$/, ''),
                  key.replace(/ies$/, 'y'), key.replace(/es$/, ''), key.replace(/s$/, ''),
                  key.replace(/ied$/, 'y'), key.replace(/ed$/, ''), key.replace(/d$/, ''),
-                 key.replace(/ing$/, ''), key.replace(/ing$/, 'e'),
+                 key.replace(/ing$/, ''), key.replace(/ing$/, 'e'), key + 'g',
                  key.replace(/(.)\1ing$/, '$1'), key.replace(/(.)\1ed$/, '$1')];
   for (const k of tries) if (k !== key && d[k]) return [k, d[k]];
   return null;
@@ -835,9 +850,8 @@ function openReview() {
   stop();
   closeSheet();
   rv.from = $('#reader').style.display === 'block' ? 'reader' : 'library';
-  // Both ways round, as germanic does: English -> Chinese, then Chinese -> English.
-  const due = dueWords();
-  rv.queue = [...due.map(w => ({w, dir: 'en'})), ...due.map(w => ({w, dir: 'zh'}))];
+  // English -> Chinese only: she sees the word, recalls the meaning.
+  rv.queue = dueWords().map(w => ({w, dir: 'en'}));
   rv.i = 0;
   screen('review');
   window.scrollTo(0, 0);
