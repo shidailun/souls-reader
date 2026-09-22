@@ -194,12 +194,11 @@ sentences across 0–360s of a 363s recording, on GPU, in well under a minute.
 
 ## Publishing, and updating the audio
 
-The student reads at **https://shidailun.github.io/souls-reader/**, behind a
+The student reads at **https://souls-reader.shidailun.com/** (a Cloudflare Worker), behind a
 password. The page itself is public, but everything it shows is encrypted:
 `scripts/publish.py` seals each chapter pack, the dictionary, the cover and the
 narration with AES-256-GCM, using a key derived from the password
-(PBKDF2-SHA256, 600k rounds). Only the ciphertext is pushed to the `gh-pages`
-branch. The reader asks for the password once, and can remember the key on her
+(PBKDF2-SHA256, 600k rounds). Only the ciphertext is deployed. The reader asks for the password once, and can remember the key on her
 device.
 
 ```
