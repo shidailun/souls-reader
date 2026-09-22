@@ -28,3 +28,6 @@ __pycache__/
 # Publishing: the sealed site is rebuilt each time; the password never leaves this machine
 build_data/site/
 build_data/site_secret.json
+
+# wrangler's local state
+.wrangler/

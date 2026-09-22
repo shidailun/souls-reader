@@ -34,7 +34,7 @@ async function cacheFirst(req) {
 async function networkFirst(req) {
   const c = await caches.open(SHELL);
   try {
-    const r = await fetch(req);
+    const r = await fetch(req, {cache: 'no-cache'});   // revalidate: no stale page from the HTTP cache
     if (r.ok) await c.put(req.url, r.clone());
     return r;
   } catch (e) {

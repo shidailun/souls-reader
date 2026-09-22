@@ -3,14 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Souls Reader</title>
+<title>We Sold Our Souls</title>
+<meta name="build" content="dev">
 <!-- Installable: on an iPhone, Safari > Share > Add to Home Screen. -->
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="apple-mobile-web-app-title" content="Souls">
+<meta name="apple-mobile-web-app-title" content="We Sold Our Souls">
 <meta name="theme-color" content="#0b0b0d">
 <!-- Guitar icon, drawn here rather than shipped as a file so the reader stays
      one file the student can open, edit and hand around. -->
@@ -35,11 +36,21 @@
 
   /* ---------- library ---------- */
   #library{display:none}
-  .hero{position:relative;padding:40px 0 28px;display:flex;gap:28px;align-items:flex-start}
-  .hero img{
-    width:210px;flex:0 0 210px;border-radius:4px;display:block;
-    box-shadow:0 18px 50px rgba(0,0,0,.65), 0 0 0 1px #000;
-  }
+  /* The cover fills the screen and stays put; the contents scroll up over it. */
+  #cover{position:fixed;left:0;right:0;top:env(safe-area-inset-top);width:100%;
+    height:min(calc(100vh - env(safe-area-inset-top)), 150vw);object-fit:contain;object-position:top;z-index:0}
+  /* Big translucent button just below the guitar (~90% down the cover). */
+  #revbtn{position:absolute;z-index:2;left:50%;transform:translate(-50%,-50%);
+    top:calc(env(safe-area-inset-top) + .905 * min(calc(100vh - env(safe-area-inset-top)), 150vw));
+    background:rgba(0,0,0,.28)!important;color:#fff!important;border:2px solid rgba(255,255,255,.75)!important;
+    backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);text-shadow:0 1px 4px #000;
+    font-size:1.15rem;font-weight:700;letter-spacing:.04em;padding:12px 26px;border-radius:999px;white-space:nowrap}
+  #library .wrap{position:relative;z-index:1;padding-top:calc(env(safe-area-inset-top) + min(calc(100vh - env(safe-area-inset-top)), 150vw))}
+  /* See-through list: the cover stays visible behind it as it scrolls up. */
+  #library .chapters{position:relative;z-index:1;gap:0;margin-top:0;border:0;background:none}
+  #library .chapters li{background:rgba(0,0,0,.3);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);border-top:1px solid rgba(255,255,255,.12)}
+  #library .chapters button{text-shadow:0 1px 3px #000,0 0 8px #000}
+  #library .chapters button:hover{background:rgba(255,255,255,.06)}
   .hero h1{font-size:2.1rem;line-height:1.1;margin:.1em 0 .1em}
   .hero .zh{font-family:var(--han);color:var(--zh);font-size:1.25rem;margin:0 0 .5em}
   .hero .by{color:var(--dim);margin:0 0 1em;font-size:1rem}
@@ -177,8 +188,6 @@
   #rdone p{color:var(--dim)}
 
   @media (max-width:640px){
-    .hero{flex-direction:column;gap:18px;padding-top:26px}
-    .hero img{width:56%;max-width:210px;flex:none}
     :root{--size:19px}
   }
 </style>
@@ -188,10 +197,8 @@
 <div id="lock">
   <div class="wrap">
     <form id="lockf" autocomplete="off">
-      <h1>Souls Reader</h1>
-      <p>This reader is private. Enter the password you were given.</p>
       <input type="password" id="pw" autocomplete="current-password" aria-label="Password">
-      <label><input type="checkbox" id="remember" checked> Remember on this device</label>
+      <input type="checkbox" id="remember" checked hidden>
       <button class="btn go" type="submit">Open</button>
       <p id="lockmsg"></p>
     </form>
@@ -200,28 +207,12 @@
 
 <div id="library">
   <div class="wrap">
-    <div class="brand">
-      <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M40 6l6 6-8 8 4 4-9 9a13 13 0 11-6-6l9-9-4-4 8-8zM22 38a7 7 0 100 14 7 7 0 000-14zm0 4a3 3 0 110 6 3 3 0 010-6z"/></svg>
-      <span>Souls Reader</span>
-    </div>
-    <div class="hero">
-      <img id="cover" alt="">
-      <div>
-        <h1 id="btitle">&nbsp;</h1>
-        <p class="zh" id="bzh"></p>
-        <p class="by" id="bby"></p>
-        <p class="note">
-          Read a segment, a sentence, a paragraph or the whole chapter at a time.
-          Tap any word for its pronunciation and Chinese gloss. Where narration
-          exists, each piece plays on its own and the words light up as they are
-          spoken.
-        </p>
-      </div>
-    </div>
-    <div class="libbar">
-      <button class="btn" id="revbtn">Review</button>
-      <button class="btn" id="offbtn" hidden>Save for offline</button>
-      <button class="btn" id="lockbtn" hidden>Lock</button>
+    <img id="cover" alt="Cover of We Sold Our Souls">
+    <button class="btn" id="revbtn">Word Review</button>
+    <div class="hero" hidden><h1 id="btitle"></h1><p class="zh" id="bzh"></p></div>
+    <div hidden>
+      <button class="btn" id="offbtn">Save for offline</button>
+      <button class="btn" id="lockbtn">Lock</button>
     </div>
     <ul class="chapters" id="chapters"></ul>
   </div>
@@ -231,8 +222,8 @@
   <div class="wrap">
     <button class="btn" id="back">&larr; Chapters</button>
     <span class="ttl" id="bartitle"></span>
-    <button class="btn" id="torev" title="Review the words you tapped">Review</button>
-    <button class="btn" id="tzh" title="Show the Chinese under every paragraph">中</button>
+    <button class="btn" id="torev" title="Review the words you added">Word Review</button>
+    <button class="btn" id="tzh" hidden>中</button>
     <button class="btn" id="smaller">A&minus;</button>
     <button class="btn" id="bigger">A+</button>
   </div>
@@ -408,6 +399,18 @@ const getJSON = async path => JSON.parse(new TextDecoder().decode(await getBytes
 const getBlobUrl = async (path, type) =>
   URL.createObjectURL(new Blob([await getBytes(path)], {type}));
 
+// A published page carries <meta name="build">; if the server has a different
+// one, this copy is stale: reload (the reading position is saved).
+async function checkForUpdate() {
+  const mine = document.querySelector('meta[name=build]').content;
+  if (mine === 'dev') return;
+  try {
+    const r = await fetch('index.html', {cache: 'no-store'});
+    const m = r.ok && (await r.text()).match(/<meta name="build" content="([^"]+)">/);
+    if (m && m[1] !== mine) location.reload();
+  } catch (e) {}                       // offline: keep what we have
+}
+
 async function start() {
   try {
     const r = await fetch('sealed.json', {cache: 'no-store'});
@@ -422,6 +425,8 @@ async function start() {
   // edited and must never be served stale.
   if ('serviceWorker' in navigator)
     navigator.serviceWorker.register('sw.js').catch(() => {});
+  checkForUpdate();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForUpdate(); });
 
   const saved = LS.get('key', null);
   if (saved) {
@@ -458,10 +463,8 @@ async function boot() {
   const work = state.reg.works[0];
   $('#btitle').textContent = work.title;
   $('#bzh').textContent = work.zh || '';
-  $('#bby').textContent = work.author;
-  getBlobUrl(work.cover || 'cover.jpg', 'image/jpeg').then(u => $('#cover').src = u, () => {});
-  document.title = work.title + ' · Reader';
-  $('#lockbtn').hidden = !vault.key;
+  if (work.cover) getBlobUrl(work.cover, 'image/jpeg').then(u => $('#cover').src = u).catch(() => {});
+  document.title = work.title;
   offline();
 
   const ul = $('#chapters');
@@ -479,7 +482,7 @@ async function boot() {
 
   const size = LS.get('size', null);
   if (size) document.documentElement.style.setProperty('--size', size + 'px');
-  state.showZh = LS.get('showZh', false);
+  state.showZh = false;
   $('#tzh').classList.toggle('on', state.showZh);
   state.rate = LS.get('rate', 1);
   $('#speed').value = state.rate;
@@ -551,7 +554,6 @@ async function open(i) {
   $('#ctitle').textContent = shortTitle(state.pack.title);
   $('#czh').textContent = state.pack.titleTranslation || '';
   $('#czh').style.display = 'none';          // on demand: tap the title
-  $('#bartitle').textContent = shortTitle(state.pack.title);
   screen('reader');
   $('#prev').disabled = i === 0;
   $('#next').disabled = i === state.reg.chapters.length - 1;
@@ -637,7 +639,7 @@ function tappable(ws, text, gloss) {
   for (const part of parts) {
     const sp = document.createElement('span');
     sp.textContent = part;
-    if (!/^[—–…/]+$/.test(part) && clean(part))
+    if (!/^[—–…/]+$/.test(part) && (clean(part) || /\d/.test(part)))
       sp.onclick = e => { e.stopPropagation(); gloss(part); };
     ws.appendChild(sp);
   }
@@ -755,9 +757,36 @@ function lookup(key) {
 // The headword a token files under: "hunched" -> "hunched", "Guitars," -> "guitar".
 const headword = raw => { const k = clean(raw); const h = lookup(k); return h ? h[0] : k; };
 
+// Say a tapped word aloud with the phone's own English voice (free, offline).
+let enVoice = null;
+function pickVoice() {
+  const vs = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
+  enVoice = vs.find(v => v.lang === 'en-US' && v.localService)
+         || vs.find(v => /^en[-_]/.test(v.lang)) || null;
+}
+if (window.speechSynthesis) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+function sayWord(word) {
+  if (!window.speechSynthesis || !word) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(word);
+  u.lang = 'en-US';
+  if (enVoice) u.voice = enVoice;
+  u.rate = 0.85;
+  speechSynthesis.speak(u);
+}
+
 function glossFor(raw, box, loc, el) {
   const key = clean(raw);
-  if (!key) { box.style.display = 'none'; return; }
+  if (!key) {
+    // Numbers aren't in the dictionary, but she should still hear them: "$160" -> "160 dollars".
+    const num = raw.trim().replace(/^[^\w$£€]+|[^\w%]+$/gu, '');
+    if (!/\d/.test(num)) { box.style.display = 'none'; return; }
+    sayWord(num);
+    box.style.display = 'block';
+    box.innerHTML = `<b>${num}</b>`;
+    return;
+  }
+  sayWord(key);
   box.style.display = 'block';
   const hit = lookup(key);
   if (!hit) {
@@ -767,20 +796,17 @@ function glossFor(raw, box, loc, el) {
     return;
   }
   const [k, e] = hit;
-  // A tap is the truest signal a word is hard: it goes into Review unless she
-  // has said she knows it.
-  const card = vocab.get(k);
-  if (!card.status) vocab.put(k, {status: 'learning', loc, added: new Date().toISOString()});
   box.innerHTML = `<b>${k}</b><span class="ipa">${e.ipa ? '/' + e.ipa + '/' : ''}</span>`
                 + `<span class="zh">${e.zh || ''}</span><span class="gact"></span>`;
   const act = box.querySelector('.gact');
   const draw = () => {
     const st = vocab.get(k).status;
     act.innerHTML = st === 'learning'
-      ? '<span class="gnote">In Review ✓</span> <button class="btn">I know this word</button>'
-      : '<span class="gnote">Known</span> <button class="btn">Put it back in Review</button>';
+      ? '<span class="gnote">In Word Review ✓</span> <button class="btn">Remove</button>'
+      : '<button class="btn">Add to Word Review</button>';
     act.querySelector('button').onclick = () => {
-      vocab.put(k, st === 'learning' ? {status: 'known'} : {status: 'learning', loc});
+      vocab.put(k, st === 'learning' ? {status: 'known'}
+                                     : {status: 'learning', loc, added: new Date().toISOString()});
       markLearning();
       draw();
     };
@@ -860,9 +886,9 @@ function fmtMins(m) {
 const isDue = c => c.status === 'learning' && (!c.due || new Date(c.due) <= new Date());
 const dueWords = () => Object.entries(vocab.all()).filter(([, c]) => isDue(c)).map(([w]) => w);
 
-// Save for offline: fetch every sealed file once, so the service worker holds
-// the whole book (text and audio) on the phone. Shown only on the published
-// site, once the worker is running.
+// Save for offline: quietly fetch every sealed file once, so the service worker
+// holds the whole book (text and audio) on the phone. Runs on its own on the
+// published site once the worker is running; the button stays hidden.
 async function offline() {
   const btn = $('#offbtn');
   if (!vault.index || !('serviceWorker' in navigator) || !window.caches) return;
@@ -871,9 +897,8 @@ async function offline() {
   if (reg.active) reg.active.postMessage({keep: urls});
   const c = await caches.open('souls-data');
   const have = (await Promise.all(urls.map(u => c.match(u)))).filter(Boolean).length;
-  btn.hidden = false;
-  btn.textContent = have === urls.length ? 'Saved for offline ✓' : 'Save for offline';
-  btn.onclick = async () => {
+  if (have === urls.length) return;
+  (async () => {
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
     let n = 0;
     for (const u of urls) {
@@ -881,14 +906,14 @@ async function offline() {
       try { await fetch(u); } catch (e) { btn.textContent = 'Offline save stopped: no connection'; return; }
     }
     btn.textContent = 'Saved for offline ✓';
-  };
+  })();
 }
 
 function updateDue() {
   const n = dueWords().length;
   const total = Object.values(vocab.all()).filter(c => c.status === 'learning').length;
-  $('#revbtn').textContent = n ? `Review · ${n} due` : `Review${total ? ' · ' + total + ' words' : ''}`;
-  $('#torev').textContent = n ? `Review ${n}` : 'Review';
+  $('#revbtn').textContent = n ? `Word Review · ${n} due` : `Word Review${total ? ' · ' + total + ' words' : ''}`;
+  $('#torev').textContent = n ? `Word Review ${n}` : 'Word Review';
 }
 
 const GRADES = [['again', 'Forgot'], ['hard', 'Hard'], ['good', 'Good'], ['easy', 'Easy']];

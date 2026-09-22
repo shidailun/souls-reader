@@ -1,0 +1,19 @@
+{
+  // Souls Reader, sealed. Entirely static: no "main", only assets, and the
+  // assets are build_data/site/, which scripts/publish.py writes. Deploy with
+  // `python scripts/publish.py`, never a bare `wrangler deploy` on a stale
+  // folder. Everything under data/ is AES-GCM ciphertext; the page is a lock
+  // screen without the password.
+  "name": "souls-reader",
+  "compatibility_date": "2026-08-01",
+
+  "assets": {
+    "directory": "./build_data/site",
+    // index.html is the whole reader, no client-side router.
+    "not_found_handling": "none"
+  },
+
+  "routes": [
+    { "pattern": "souls-reader.shidailun.com", "custom_domain": true }
+  ]
+}

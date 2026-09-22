@@ -30,6 +30,11 @@ import json, re, sys, io
 from collections import Counter
 from pathlib import Path
 
+
+def title_case(s):
+    """str.title() but without capitalising after an apostrophe: Let's, not Let'S."""
+    return re.sub(r"(['’])([ST])\b", lambda m: m[1] + m[2].lower(), s.title())
+
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / 'build_data' / 'chapters'
@@ -162,7 +167,7 @@ def build(code, vocab, overrides, seen, report):
 
     pack = {
         'id': code, 'dialect': WORK['dialect'], 'group': WORK['slug'],
-        'title': f"{WORK['title']} \u00b7 {title.title()}", 'titleTranslation': None,
+        'title': f"{WORK['title']} · {title_case(title)}", 'titleTranslation': None,
         'paragraphs': [],
     }
     for pi, raw in enumerate(paras, 1):
