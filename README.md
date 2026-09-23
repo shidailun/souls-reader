@@ -194,30 +194,36 @@ sentences across 0–360s of a 363s recording, on GPU, in well under a minute.
 
 ## Publishing, and updating the audio
 
-The student reads at **https://souls-reader.shidailun.com/** (a Cloudflare Worker), behind a
-password. The page itself is public, but everything it shows is encrypted:
-`scripts/publish.py` seals each chapter pack, the dictionary, the cover and the
-narration with AES-256-GCM, using a key derived from the password
-(PBKDF2-SHA256, 600k rounds). Only the ciphertext is deployed. The reader asks for the password once, and can remember the key on her
-device.
+The student reads at **https://souls-reader.shidailun.com/** (a Cloudflare
+Worker), behind the reader gate. The page, the service worker, the manifest and
+the icons are public, so the sign-in screen can draw; every chapter pack, the
+dictionary, the cover and the narration come only from `worker/index.js`
+(`_tools/reader-gate/gate.js`, copied unchanged), which asks for a student
+number and a Lingnan email and checks the pair against the roll in D1.
+`scripts/publish.py` deploys the files as themselves, hashed into `files.json`
+and asked for as `path?v=<hash>`.
 
 ```
-python scripts/publish.py                  # encrypt everything and deploy
-python scripts/publish.py --show-password  # what to tell her
-python scripts/publish.py --new-password   # rotate; she needs the new one
+python scripts/publish.py                  # build build_data/site/ and deploy
 python scripts/publish.py --dry-run        # build build_data/site/ only
 ```
 
-The password and salt are kept in `build_data/site_secret.json`. That file is
-gitignored: never commit it, and never paste the password anywhere public.
+The gate replaced a shared password on 23 Sep 2026 — a password has to be
+handed out and leaks the day one student passes it on, and a student number and
+a Lingnan email are two things nobody in 503 or 506 can mislay. With the gate in
+front, ciphertext protects nothing the gate does not, so the AES-256-GCM
+sealing, `--show-password` and `--new-password` all went. `build_data/site_secret.json`
+still holds the old password; nothing reads it, it stays gitignored, and it is
+his to delete.
 
 **To update the audio:**
 1. Replace `public/audio/soulsNN.mp3`, or rerun `narrate.py soulsNN`.
 2. Run `align.py soulsNN`, then `segment.py soulsNN`, so the timings match the new file.
 3. Run `publish.py`.
 
-The same steps apply after any change to translations or the dictionary. The
-salt does not change between publishes, so her remembered key keeps working.
+The same steps apply after any change to translations or the dictionary. Only
+the files whose content changed are uploaded, and only their `?v=` hashes
+change, so an installed copy re-downloads the re-cut chapter and nothing else.
 
 **Review:** tapping a word puts it in her Review deck (germanic's SRS, simplified
 SM-2). The deck is stored in her browser, so it stays on the device she uses.

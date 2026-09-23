@@ -140,16 +140,21 @@
     border:1px solid var(--line);border-radius:3px;font:inherit;font-size:.8rem;padding:3px 5px}
   .ctl label{color:var(--dim);font-size:.75rem;display:flex;align-items:center;gap:6px}
 
-  /* ---------- lock ---------- */
-  #lock{display:none}
-  #lock form{max-width:22rem;margin:18vh auto 0;display:flex;flex-direction:column;gap:12px}
-  #lock h1{font-size:1.5rem;margin:0}
-  #lock p{color:var(--dim);font-size:.9rem;line-height:1.5;margin:0}
-  #lock input[type=password]{background:var(--panel);color:var(--ink);border:1px solid var(--line);
-    border-radius:4px;font:inherit;font-size:1.1rem;padding:10px 12px;letter-spacing:.08em}
-  #lock label{color:var(--dim);font-size:.85rem;display:flex;gap:8px;align-items:center}
-  #lock .go{padding:10px;font-size:1rem;color:var(--ink);border-color:var(--hot)}
-  #lockmsg{min-height:1.4em;color:var(--hot)!important}
+  /* ---------- sign-in ----------
+     Shown only when the gate answers 401 (worker/index.js): then everything
+     else on the page is hidden and this is the whole screen. */
+  #signin{display:none;max-width:22rem;margin:0 auto;
+    padding:calc(env(safe-area-inset-top) + 22vh) 16px 40px}
+  body.locked > :not(#signin){display:none!important}
+  body.locked #signin{display:block}
+  #signin input{display:block;width:100%;margin:0 0 12px;padding:12px 14px;
+    background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:3px;
+    font:inherit;font-size:1.05rem}
+  #signin input:focus{outline:none;border-color:var(--hot)}
+  #signin .btn{width:100%;font-size:1rem;padding:11px;color:var(--bg);
+    background:var(--hot);border-color:var(--hot)}
+  #signin .btn:disabled{opacity:.5}
+  #signerr{color:var(--hot);font-size:.9rem;min-height:1.4em;margin:12px 0 0}
   .libbar{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}
   .libbar .btn{font-size:.9rem;padding:8px 14px}
   #revbtn{color:var(--ink);border-color:var(--hot)}
@@ -194,16 +199,14 @@
 </head>
 <body>
 
-<div id="lock">
-  <div class="wrap">
-    <form id="lockf" autocomplete="off">
-      <input type="password" id="pw" autocomplete="current-password" aria-label="Password">
-      <input type="checkbox" id="remember" checked hidden>
-      <button class="btn go" type="submit">Open</button>
-      <p id="lockmsg"></p>
-    </form>
-  </div>
-</div>
+<form id="signin" autocomplete="on">
+  <input id="gsid" name="username" autocomplete="username" autocapitalize="off"
+    spellcheck="false" placeholder="Student number" required>
+  <input id="gmail" name="email" type="email" autocomplete="email"
+    placeholder="Lingnan email" required>
+  <button class="btn" type="submit">Sign in</button>
+  <p id="signerr"></p>
+</form>
 
 <div id="library">
   <div class="wrap">
@@ -212,7 +215,6 @@
     <div class="hero" hidden><h1 id="btitle"></h1><p class="zh" id="bzh"></p></div>
     <div hidden>
       <button class="btn" id="offbtn">Save for offline</button>
-      <button class="btn" id="lockbtn">Lock</button>
     </div>
     <ul class="chapters" id="chapters"></ul>
   </div>
@@ -331,9 +333,10 @@
 // Switching view keeps your place, anchored on a sentence id. Tapped words go
 // into Review, a spaced-repetition deck (germanic's SRSReview, in miniature).
 //
-// Published copies are SEALED (scripts/publish.py): every data file is
-// AES-GCM encrypted under a key derived from a password, and the page asks for
-// it. Run locally, there is no sealed.json and the files are read as they are.
+// The published copy is behind the reader gate (worker/index.js): the page and
+// its shell load for anyone, and every text, sound and the dictionary only for
+// a student number and Lingnan email that D1 finds on the roll. Run locally
+// there is no gate and the files are read as they are.
 // ---------------------------------------------------------------------------
 const $ = s => document.querySelector(s);
 const MODES = ['segment', 'sentence', 'paragraph', 'story'];
@@ -352,48 +355,26 @@ const LS = {
 const shortTitle = t => t.includes(' · ') ? t.split(' · ').pop() : t;
 
 function screen(name) {
-  for (const s of ['lock', 'library', 'reader', 'review'])
+  for (const s of ['library', 'reader', 'review'])
     $('#' + s).style.display = s === name ? 'block' : 'none';
   $('#bar').style.display = name === 'reader' ? 'block' : 'none';
 }
 
 // ---------------------------------------------------------------------------
-// Data. getBytes('texts/souls01.json') is the only way anything is read: plain
-// fetch locally, fetch + decrypt when the site is sealed. File layout on a
-// sealed site: data/<path>.bin = 12-byte nonce | AES-GCM ciphertext+tag.
+// Data. getBytes('texts/souls01.json') is the only way anything is read. On
+// the published site files.json maps every data file to a content hash, and a
+// file is asked for as path?v=<hash>: the service worker keeps such a URL for
+// good (it can never change), and a republished file gets a new hash, hence a
+// new URL. Locally there is no files.json and the plain path is fetched.
 // ---------------------------------------------------------------------------
-const vault = {key: null, meta: null, index: null};
-const b64 = {
-  enc: buf => { let s = ''; new Uint8Array(buf).forEach(c => s += String.fromCharCode(c)); return btoa(s); },
-  dec: s => Uint8Array.from(atob(s), c => c.charCodeAt(0)),
-};
-
-async function unseal(key, buf) {
-  const b = new Uint8Array(buf);
-  return crypto.subtle.decrypt({name: 'AES-GCM', iv: b.slice(0, 12)}, key, b.slice(12));
-}
-
-async function deriveKey(pw, meta) {
-  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw),
-                                             'PBKDF2', false, ['deriveKey']);
-  return crypto.subtle.deriveKey(
-    {name: 'PBKDF2', salt: b64.dec(meta.salt), iterations: meta.iter, hash: 'SHA-256'},
-    base, {name: 'AES-GCM', length: 256}, true, ['decrypt']);
-}
-
-// A key is right if it opens the check blob; AES-GCM refuses anything else.
-const tryKey = key => unseal(key, b64.dec(vault.meta.check)).then(() => true, () => false);
-
-// The ?v= hash (data/index.json) lets the offline cache keep a file for good
-// and still see a republished one as new: see sw.js.
-const sealedUrl = path => 'data/' + path + '.bin'
-  + (vault.index && vault.index[path] ? '?v=' + vault.index[path] : '');
+const files = {index: null};
+const fileUrl = path => path + (files.index && files.index[path] ? '?v=' + files.index[path] : '');
 
 async function getBytes(path) {
-  const r = await fetch(vault.key ? sealedUrl(path) : path);
+  const r = await fetch(fileUrl(path));
+  if (r.status === 401) signIn();
   if (!r.ok) throw new Error(path + ': ' + r.status);
-  const buf = await r.arrayBuffer();
-  return vault.key ? unseal(vault.key, buf) : buf;
+  return r.arrayBuffer();
 }
 const getJSON = async path => JSON.parse(new TextDecoder().decode(await getBytes(path)));
 const getBlobUrl = async (path, type) =>
@@ -412,48 +393,21 @@ async function checkForUpdate() {
 }
 
 async function start() {
-  try {
-    const r = await fetch('sealed.json', {cache: 'no-store'});
-    vault.meta = r.ok ? await r.json() : null;
-  } catch (e) { vault.meta = null; }
-  if (!vault.meta) return boot();
-  try {
-    const r = await fetch('data/index.json', {cache: 'no-store'});
-    vault.index = r.ok ? await r.json() : null;
-  } catch (e) { vault.index = null; }
   // Only the published site is cached for offline; a local copy is being
   // edited and must never be served stale.
-  if ('serviceWorker' in navigator)
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  checkForUpdate();
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForUpdate(); });
-
-  const saved = LS.get('key', null);
-  if (saved) {
+  if (document.querySelector('meta[name=build]').content !== 'dev') {
     try {
-      const key = await crypto.subtle.importKey('raw', b64.dec(saved), 'AES-GCM', true, ['decrypt']);
-      if (await tryKey(key)) { vault.key = key; return boot(); }
-    } catch (e) {}
-    LS.set('key', null);           // the password changed, or the key is damaged
+      const r = await fetch('files.json', {cache: 'no-store'});
+      if (r.status === 401) return signIn();
+      files.index = r.ok ? await r.json() : null;
+    } catch (e) { files.index = null; }
+    if ('serviceWorker' in navigator)
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    checkForUpdate();
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForUpdate(); });
   }
-  screen('lock');
-  $('#pw').focus();
+  return boot();
 }
-
-$('#lockf').onsubmit = async e => {
-  e.preventDefault();
-  const msg = $('#lockmsg');
-  msg.textContent = 'Opening…';
-  const key = await deriveKey($('#pw').value.trim(), vault.meta);
-  if (!(await tryKey(key))) { msg.textContent = 'That password is not right.'; return; }
-  vault.key = key;
-  if ($('#remember').checked) LS.set('key', b64.enc(await crypto.subtle.exportKey('raw', key)));
-  msg.textContent = '';
-  $('#pw').value = '';
-  boot().catch(fail);
-};
-
-$('#lockbtn').onclick = () => { LS.set('key', null); location.reload(); };
 
 async function boot() {
   state.reg = await getJSON('texts/registry.json');
@@ -886,14 +840,14 @@ function fmtMins(m) {
 const isDue = c => c.status === 'learning' && (!c.due || new Date(c.due) <= new Date());
 const dueWords = () => Object.entries(vocab.all()).filter(([, c]) => isDue(c)).map(([w]) => w);
 
-// Save for offline: quietly fetch every sealed file once, so the service worker
+// Save for offline: quietly fetch every data file once, so the service worker
 // holds the whole book (text and audio) on the phone. Runs on its own on the
 // published site once the worker is running; the button stays hidden.
 async function offline() {
   const btn = $('#offbtn');
-  if (!vault.index || !('serviceWorker' in navigator) || !window.caches) return;
+  if (!files.index || !('serviceWorker' in navigator) || !window.caches) return;
   const reg = await navigator.serviceWorker.ready;
-  const urls = Object.keys(vault.index).map(sealedUrl);
+  const urls = Object.keys(files.index).map(fileUrl);
   if (reg.active) reg.active.postMessage({keep: urls});
   const c = await caches.open('souls-data');
   const have = (await Promise.all(urls.map(u => c.match(u)))).filter(Boolean).length;
@@ -1079,8 +1033,7 @@ $('#torev').onclick = openReview;
 // Audio. One mp3 per chapter; a unit plays exactly its own [start, end] and
 // stops. The file is loaded once as a blob: `python -m http.server` does not
 // answer Range requests, so a plain URL cannot seek and every play would start
-// at 0:00 - and a sealed file has to be decrypted whole anyway. A blob seeks
-// anywhere, whatever serves it.
+// at 0:00. A blob seeks anywhere, whatever serves it.
 // ---------------------------------------------------------------------------
 const au = $('#au');
 const blobs = {};
@@ -1275,7 +1228,35 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// The gate answered 401: this is the whole screen until she signs in. Any
+// number of requests can 401 at once, so the first one wins and the rest are
+// ignored.
+function signIn() {
+  if (document.body.classList.contains('locked')) return;
+  document.body.classList.add('locked');
+  $('#au').pause();
+  const f = $('#signin'), err = $('#signerr'), go = f.querySelector('button');
+  f.onsubmit = async e => {
+    e.preventDefault();
+    err.textContent = '';
+    go.disabled = true;
+    try {
+      const r = await fetch('api/signin', {method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sid: $('#gsid').value.trim(), email: $('#gmail').value.trim()})});
+      if (r.ok) return location.reload();
+      err.textContent = r.status === 401 ? 'That number and email are not on the class list.'
+        : r.status === 429 ? 'Too many tries. Wait a minute.'
+        : r.status === 403 ? 'Closed for now.'
+        : 'Could not check just now. Try again.';
+    } catch (e) { err.textContent = 'No connection.'; }
+    go.disabled = false;
+  };
+  $('#gsid').focus();
+}
+
 function fail(e) {
+  if (document.body.classList.contains('locked')) return;
   document.body.innerHTML = '<div class="wrap"><p style="padding:40px 0">'
     + 'Could not load the texts: ' + e
     + '<br><br>Serve this folder rather than opening the file directly:<br>'
