@@ -305,11 +305,54 @@ async function beat(req, env) {
   return new Response(null, { status: 204 });
 }
 
+// MORE, PLEASE. "there should be a button saying I've finished all this
+// content, I want more! It should tell me if they've finished." One row per app
+// and student, 'fr:<app>:more', and `done` 1 -- unit_time.done is the register's
+// own finished flag, the one TRA503's mirror MAXes, so a student saying they
+// have finished a reader is written the way every other finished unit is and
+// the shared table needed nothing new.
+//   - ms 0. Asking for more is not reading: the row joins the 'fr' sums and
+//     adds no minutes to the Free reading mark.
+//   - It cannot be taken back from here. A second press only restamps
+//     last_touch, which is how he sees they are still waiting.
+//   - No body, so no parsing and nothing a page can lie about: the app comes
+//     from the host and the sid from the cookie, exactly as in beat().
+//   - Rejected: done on every lesson row (it would say he marked them finished,
+//     not that the student did), and a new table for one flag.
+async function more(req, env) {
+  if (req.method !== "POST") return json({ error: "POST only" }, 405);
+  if (!OPEN) return json({ error: "closed" }, 403);
+  const app = appOf(new URL(req.url).hostname);
+  if (!app) return json({ error: "not found" }, 404);
+
+  const value = readCookie(req);
+  const v = await cookieVerdict(env, value);
+  if (v === "down") return json({ error: "store" }, 503);
+  if (v !== "yes") return json({ error: "sign in" }, 401);
+  const hit = verdicts.get(value);
+  const sid = hit && hit.who && hit.who.sid;
+  if (!sid) return json({ error: "sign in" }, 401);
+  if (beatLimited(sid)) return json({ error: "slow down" }, 429);
+
+  const now = Date.now();
+  try {
+    await env.DB.prepare(
+      `INSERT INTO unit_time (sid, unit, course, ms, first_open, last_touch, opens, done)
+       VALUES (?1, ?2, 'fr', 0, ?3, ?3, 0, 1)
+       ON CONFLICT(sid, unit) DO UPDATE SET
+         last_touch = MAX(unit_time.last_touch, ?3),
+         done       = 1`
+    ).bind(sid, `fr:${app}:more`, now).run();
+  } catch { return json({ error: "store" }, 503); }
+  return new Response(null, { status: 204 });
+}
+
 export default {
   async fetch(req, env) {
     const path = new URL(req.url).pathname;
     if (path === "/api/signin") return signin(req, env);
     if (path === "/api/beat") return beat(req, env);
+    if (path === "/api/more") return more(req, env);
     if (path.startsWith("/api/")) return json({ error: "not found" }, 404);
     if (isShell(path)) return env.ASSETS.fetch(req);
     if (!OPEN) return json({ error: "closed" }, 403);

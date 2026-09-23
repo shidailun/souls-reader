@@ -434,6 +434,7 @@ async function boot() {
     li.appendChild(b);
     ul.appendChild(li);
   });
+  moreRow(ul);
 
   const size = LS.get('size', null);
   if (size) document.documentElement.style.setProperty('--size', size + 'px');
@@ -1028,6 +1029,36 @@ $('#rback').onclick = () => {
   else screen('library');
   updateDue();
 };
+// MORE, PLEASE. "there should be a button saying I've finished all this
+// content, I want more! It should tell me if they've finished." The last row of
+// the contents, in the same band as the chapters: that is where a reader is
+// standing when the last one has been read. The gate writes the register's own
+// done flag; the tick beside it is only this browser remembering that it asked,
+// so a reload still shows it and opening the app costs no extra round trip.
+// Rejected: a second bright button beside Word Review -- two loud things on top
+// of the cover argue with each other, and this belongs at the end of the
+// contents, not above them.
+function moreRow(ul) {
+  const li = document.createElement('li');
+  const b = document.createElement('button');
+  b.innerHTML = `<span class="n">🙋</span>`
+              + `<span class="t">I've finished all this content, I want more!</span>`
+              + `<span class="meta" id="morestate"></span>`;
+  b.onclick = () => {
+    fetch('api/more', {method: 'POST', credentials: 'same-origin'})
+      .then(r => { if (r.ok) { LS.set('more', true); drawMore(); } })
+      .catch(() => {});
+  };
+  li.appendChild(b);
+  ul.appendChild(li);
+  drawMore();
+}
+
+function drawMore() {
+  const el = $('#morestate');
+  if (el) el.textContent = LS.get('more') ? 'told him ✓' : '';
+}
+
 $('#revbtn').onclick = openReview;
 $('#torev').onclick = openReview;
 
