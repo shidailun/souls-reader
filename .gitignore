@@ -34,3 +34,4 @@ build_data/site_secret.json
 
 # Backups: book text, kept on disk, never in git, like the packs
 build_data/backup_*/
+build_data/zh/
