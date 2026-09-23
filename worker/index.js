@@ -76,7 +76,12 @@
 //   - ms is the time on the Review screen, counted by the page exactly as
 //     reading is: on screen, and sound playing or a touch in the last 90 s.
 //     It is real time spent on the book's own sentences, so it counts toward
-//     Free reading like any other 'fr' row. A report that wants reading alone
+//     Free reading like any other 'fr' row - but only while cards are being
+//     graded. "They actually have to do something" (23 Sep): a review beat
+//     with no card graded adds no time, and one with cards adds at most 30 s a
+//     card, so the screen left open with a finger on it earns nothing. 30 s is
+//     a sentence read, heard and graded without hurry. Reading is not held to
+//     this: there, playing the video or scrolling is the doing. A report that wants reading alone
 //     leaves out unit LIKE 'fr:%:review'.
 //   - items_done is the number of cards graded: each press of Forgot, Hard,
 //     Good or Easy is one, so a word forgotten and seen again in the same
@@ -276,11 +281,12 @@ async function beat(req, env) {
   const lesson = String((body && body.lesson) || "");
   if (!LESSON_RE.test(lesson)) return json({ error: "lesson" }, 400);
   const n = Number(body.secs);
-  const secs = Number.isFinite(n) ? Math.round(Math.min(120, Math.max(0, n))) : 0;
+  let secs = Number.isFinite(n) ? Math.round(Math.min(120, Math.max(0, n))) : 0;
   const open = body.open === true ? 1 : 0;
   // cards graded, on the Review row only (see WORD REVIEW above)
   const w = lesson === "review" ? Number(body.words) : 0;
   const words = Number.isFinite(w) ? Math.round(Math.min(120, Math.max(0, w))) : 0;
+  if (lesson === "review") secs = Math.min(secs, 30 * words);
   if (!secs && !open && !words) return new Response(null, { status: 204 });
   if (beatLimited(sid)) return json({ error: "slow down" }, 429);
 
