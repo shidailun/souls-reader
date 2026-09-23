@@ -63,6 +63,10 @@ const OPEN = true;
 
 const COURSES = ["503", "506"];
 const STAFF = ["029962"];
+// Let in to this reader only, with no roll row: Rexa (4282462) is the one this
+// app was made for. Not STAFF, because STAFF is copied into every reader's gate;
+// not a 503/506 roll row, because that would put her on a register.
+const READERS = ["4282462"];
 const SID_RE = /^[0-9A-Za-z]{4,16}$/;
 const COOKIE = "rg";
 const DOMAIN = "shidailun.com";        // every reader is a subdomain of it
@@ -121,7 +125,7 @@ async function whoIs(env, sid, email) {
       WHERE p.sid = ?1 AND LOWER(TRIM(p.email)) = ?2`
   ).bind(sid, email).first();
   if (!row) return null;
-  if (!row.enrolled && !STAFF.includes(row.sid)) return null;
+  if (!row.enrolled && !STAFF.includes(row.sid) && !READERS.includes(row.sid)) return null;
   // name_en is what he calls them; the university spelling is the fallback.
   return { sid: row.sid, name: row.name_en || row.name || row.sid };
 }
