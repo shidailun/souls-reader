@@ -358,6 +358,7 @@ function screen(name) {
   for (const s of ['library', 'reader', 'review'])
     $('#' + s).style.display = s === name ? 'block' : 'none';
   $('#bar').style.display = name === 'reader' ? 'block' : 'none';
+  track(name);
 }
 
 // ---------------------------------------------------------------------------
@@ -992,6 +993,7 @@ function grade(g) {
   vocab.put(card.w, {ease: r.ease, interval: r.interval, reps: r.reps, lapses: r.lapses,
                      state: r.state, step: r.step, due: due.toISOString(),
                      lastReviewed: new Date().toISOString()});
+  if (T.code === 'review') T.words++;
   // Forgot puts the card back into this session; anything else waits its turn.
   if (g === 'again') rv.queue.push(card);
   rv.i += 1;
@@ -1132,6 +1134,65 @@ function setPlayLabels(on) {
 }
 
 au.onended = stop;
+
+// ---------------------------------------------------------------------------
+// Reading time. The gate (worker/index.js, POST /api/beat) adds each beat to
+// this student's unit_time row for the chapter, fr:<app>:<chapter code>,
+// course 'fr', which TRA503's Free reading mark sums. The same code as the
+// channel readers' (brownlee-reader), so all fourteen apps on 503's shelf
+// report alike. A second counts only while the page is on screen AND the
+// narration is playing, or there was a tap, key or scroll in the last 90 s:
+// reading a line without playing it is reading, and a phone left face-up on
+// the contents is not. One beat a minute, and one more when the page is hidden
+// or closed (sendBeacon survives the page going away; the cookie goes with it,
+// same origin). A visit's first beat says open:true. Nothing of this is shown
+// to the student.
+//
+// What is timed follows screen(): the reader is its chapter, Word Review is
+// the lesson "review" (the gate files it as fr:<app>:review), the contents and
+// the shelf are not timed. Review beats also carry `words`, the cards graded
+// since the last beat: "time and words reviewed". Each grade is one, so a card
+// forgotten and seen again counts twice. Words are sent, never added to the
+// seconds.
+// ---------------------------------------------------------------------------
+const T = {code: null, secs: 0, open: false, words: 0};
+let lastInput = 0;
+const playing = () => !au.paused;
+for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll'])
+  addEventListener(ev, () => { lastInput = Date.now(); }, {passive: true, capture: true});
+setInterval(() => {
+  if (!T.code || document.visibilityState !== 'visible') return;
+  if (playing() || Date.now() - lastInput < 90000) T.secs++;
+}, 1000);
+setInterval(() => sendBeat(false), 60000);
+function sendBeat(leaving) {
+  if (!T.code || (!T.secs && !T.open && !T.words)) return;
+  const secs = Math.min(120, T.secs), words = Math.min(120, T.words), code = T.code;
+  const beat = {lesson: code, secs};
+  if (T.open) beat.open = true;
+  if (words) beat.words = words;
+  const body = JSON.stringify(beat);
+  T.secs -= secs; T.words -= words; T.open = false;
+  if (leaving && navigator.sendBeacon &&
+      navigator.sendBeacon('api/beat', new Blob([body], {type: 'application/json'}))) return;
+  fetch('api/beat', {method: 'POST', body, keepalive: true, credentials: 'same-origin',
+                     headers: {'Content-Type': 'application/json'}})
+    .then(r => { if (r.status === 429 && T.code === code) { T.secs += secs; T.words += words; } })   // try again next minute
+    .catch(() => {});
+}
+function beginVisit(code) {
+  if (T.code === code) return;
+  endVisit();
+  Object.assign(T, {code, secs: 0, open: true, words: 0});
+}
+function endVisit() { sendBeat(true); T.code = null; T.secs = 0; T.open = false; T.words = 0; }
+function track(name) {
+  if (name === 'reader' && state.pack) beginVisit(state.pack.id);
+  else if (name === 'review') beginVisit('review');
+  else endVisit();
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') sendBeat(true); });
+addEventListener('pagehide', () => sendBeat(true));
 
 // ---------------------------------------------------------------------------
 // Chrome

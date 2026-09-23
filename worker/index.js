@@ -43,9 +43,54 @@
 //     would then have to hold the key, which is the password again with extra
 //     steps, and the page would still carry the unseal code. With the gate in
 //     front, ciphertext protects nothing the gate does not.
-// No new secret of any kind: the only binding is D1, and the only statements
-// below are SELECTs. (D1 has no read-only binding; that is a promise of this
-// file, not of the platform.)
+// No new secret of any kind: the only binding is D1, and every statement below
+// is a SELECT except the one in beat(). (D1 has no read-only binding; that is a
+// promise of this file, not of the platform.)
+//
+// READING TIME. He asked for "the same log in and tracking" in every reader.
+// POST /api/beat {lesson, secs, open?, words?} adds secs to one unit_time row: sid from
+// the cookie (re-checked exactly as for a file), unit 'fr:<app>:<lesson>',
+// course 'fr' - the rows TRA503's Free reading mark already sums (frQuery in
+// tra503/web/worker/index.js). That is the only write in this file.
+//   - <app> is not sent by the page. It comes from the host the Worker answers
+//     on, brownlee-reader.shidailun.com -> "brownlee", so a page cannot file
+//     its minutes under another reader's name, and no reader needs its own
+//     copy of this file. Off the domain there is no app, and no write.
+//     A book reader not called <x>-reader is filed under its host as it
+//     stands (dancing-english), and Key to Happiness, which answers on two
+//     hosts, under one name whichever was used (ALIAS): one book, one app.
+//   - ms is ADDED to, not MAX()ed as tra503's mirror does. There the client
+//     sends a running total and a stale device must not lower it; here each
+//     beat is a fresh slice of at most two minutes, so the sum is the total.
+//     A beat lost on a dead connection is time not counted, never double.
+//   - first_open and last_touch are epoch milliseconds, as tra503 writes them.
+//     opens counts lesson visits: the page says {open:true} on the first beat
+//     of each one.
+//   - Four beats a minute per student number, per isolate. The page sends one a
+//     minute and one more when it is hidden; anything faster is not a reader.
+//
+// WORD REVIEW. He asked for every app on 503's "More parallel" shelf to report
+// "time and words reviewed". Review belongs to no lesson, so its beats say
+// lesson "review" and land on one row per app and student, 'fr:<app>:review'
+// (no lesson is called that: lesson codes are letters and two digits).
+//   - ms is the time on the Review screen, counted by the page exactly as
+//     reading is: on screen, and sound playing or a touch in the last 90 s.
+//     It is real time spent on the book's own sentences, so it counts toward
+//     Free reading like any other 'fr' row. A report that wants reading alone
+//     leaves out unit LIKE 'fr:%:review'.
+//   - items_done is the number of cards graded: each press of Forgot, Hard,
+//     Good or Easy is one, so a word forgotten and seen again in the same
+//     sitting counts twice, because it was reviewed twice. The beat carries it
+//     as {words}; on any lesson but "review" words is ignored, and it never
+//     touches ms, so a fast thumb adds no minutes.
+//   - items_done because unit_time already has a count column that is not
+//     time, and the register already reads it that way (wib:ai's turns).
+//     items stays 0, so nothing takes the row for a finished unit. Rejected:
+//     a second row per app, 'fr:<app>:words' with ms 0 - two rows for one
+//     screen, and one whose ms nothing may ever write; a new table or column -
+//     a migration on the shared D1 for one integer; opens - it counts visits.
+//   - At most 120 words a beat, as secs is at most 120: a card a second is
+//     faster than anyone grades.
 //
 // WHAT IS OPEN. The shell, so the installed app can draw its sign-in screen and
 // register its service worker with no cookie: /, index.html, sw.js, the
@@ -189,10 +234,76 @@ async function signin(req, env) {
   });
 }
 
+// ---- reading time (see READING TIME above) ----
+const HOST_RE = /^([a-z0-9-]+)\.shidailun\.com$/;
+const ALIAS = { "psycho-memoir": "key-to-happiness" };
+const appOf = (host) => {
+  const m = host.match(HOST_RE);
+  if (!m) return "";
+  const name = m[1].replace(/-reader$/, "");
+  return ALIAS[name] || name;
+};
+const LESSON_RE = /^[a-z0-9]{2,12}$/;
+const BEATS_PER_MIN = 4;
+const beats = new Map(); // sid -> recent beat times
+function beatLimited(sid) {
+  const now = Date.now();
+  const arr = (beats.get(sid) || []).filter((t) => now - t < RATE_WINDOW_MS);
+  arr.push(now);
+  beats.set(sid, arr);
+  if (beats.size > 5000) beats.clear();
+  return arr.length > BEATS_PER_MIN;
+}
+
+async function beat(req, env) {
+  if (req.method !== "POST") return json({ error: "POST only" }, 405);
+  if (!OPEN) return json({ error: "closed" }, 403);
+  const app = appOf(new URL(req.url).hostname);
+  if (!app) return json({ error: "not found" }, 404);
+
+  const value = readCookie(req);
+  const v = await cookieVerdict(env, value);
+  if (v === "down") return json({ error: "store" }, 503);
+  if (v !== "yes") return json({ error: "sign in" }, 401);
+  const hit = verdicts.get(value);
+  const sid = hit && hit.who && hit.who.sid;
+  if (!sid) return json({ error: "sign in" }, 401);
+
+  // sendBeacon posts its Blob as text; parse it by hand rather than trusting a
+  // Content-Type header.
+  let body;
+  try { body = JSON.parse(await req.text()); } catch { return json({ error: "bad json" }, 400); }
+  const lesson = String((body && body.lesson) || "");
+  if (!LESSON_RE.test(lesson)) return json({ error: "lesson" }, 400);
+  const n = Number(body.secs);
+  const secs = Number.isFinite(n) ? Math.round(Math.min(120, Math.max(0, n))) : 0;
+  const open = body.open === true ? 1 : 0;
+  // cards graded, on the Review row only (see WORD REVIEW above)
+  const w = lesson === "review" ? Number(body.words) : 0;
+  const words = Number.isFinite(w) ? Math.round(Math.min(120, Math.max(0, w))) : 0;
+  if (!secs && !open && !words) return new Response(null, { status: 204 });
+  if (beatLimited(sid)) return json({ error: "slow down" }, 429);
+
+  const now = Date.now();
+  try {
+    await env.DB.prepare(
+      `INSERT INTO unit_time (sid, unit, course, ms, first_open, last_touch, opens, items_done)
+       VALUES (?1, ?2, 'fr', ?3, ?4, ?4, ?5, ?6)
+       ON CONFLICT(sid, unit) DO UPDATE SET
+         ms         = unit_time.ms + ?3,
+         last_touch = MAX(unit_time.last_touch, ?4),
+         opens      = unit_time.opens + ?5,
+         items_done = unit_time.items_done + ?6`
+    ).bind(sid, `fr:${app}:${lesson}`, secs * 1000, now, open, words).run();
+  } catch { return json({ error: "store" }, 503); }
+  return new Response(null, { status: 204 });
+}
+
 export default {
   async fetch(req, env) {
     const path = new URL(req.url).pathname;
     if (path === "/api/signin") return signin(req, env);
+    if (path === "/api/beat") return beat(req, env);
     if (path.startsWith("/api/")) return json({ error: "not found" }, 404);
     if (isShell(path)) return env.ASSETS.fetch(req);
     if (!OPEN) return json({ error: "closed" }, 403);

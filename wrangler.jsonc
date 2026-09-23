@@ -12,9 +12,10 @@
 // dictionary only for a student number + Lingnan email that D1 finds on the
 // 503 or 506 roll. run_worker_first makes the gate see every request, assets
 // included; without it Cloudflare would serve a matching file before the
-// Worker was asked. The D1 binding is only ever read. "remote" matters only to
-// `wrangler dev`: a local D1 would be empty and let nobody in, so dev reads
-// the real roll.
+// Worker was asked. The D1 binding's one write is the reading-time beat
+// (POST /api/beat: minutes read, minutes in Word Review, cards graded, to
+// unit_time). "remote" matters only to `wrangler dev`: a local D1 would be
+// empty and let nobody in, so dev reads the real roll.
 //
 // A single Worker asset may be at most 25 MiB. The longest chapter here is
 // under 10 MiB, but publish.py measures every file and stops rather than
