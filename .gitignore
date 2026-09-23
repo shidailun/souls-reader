@@ -31,3 +31,6 @@ build_data/site_secret.json
 
 # wrangler's local state
 .wrangler/
+
+# Backups: book text, kept on disk, never in git, like the packs
+build_data/backup_*/
