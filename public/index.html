@@ -713,22 +713,16 @@ function lookup(key) {
 // The headword a token files under: "hunched" -> "hunched", "Guitars," -> "guitar".
 const headword = raw => { const k = clean(raw); const h = lookup(k); return h ? h[0] : k; };
 
-// Say a tapped word aloud with the phone's own English voice (free, offline).
-let enVoice = null;
-function pickVoice() {
-  const vs = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
-  enVoice = vs.find(v => v.lang === 'en-US' && v.localService)
-         || vs.find(v => /^en[-_]/.test(v.lang)) || null;
-}
-if (window.speechSynthesis) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+// Say a tapped word aloud: the gate asks Workers AI for it (worker/index.js,
+// /api/say), one voice on every device. The phone's own voice read out its
+// SSML wrapper instead of the word on his machine (25 Sep 2026).
+const SAY_V = 1;
+let sayAudio = null;
 function sayWord(word) {
-  if (!window.speechSynthesis || !word) return;
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(word);
-  u.lang = 'en-US';
-  if (enVoice) u.voice = enVoice;
-  u.rate = 0.85;
-  speechSynthesis.speak(u);
+  if (!word) return;
+  if (sayAudio) sayAudio.pause();
+  sayAudio = new Audio('/api/say?w=' + encodeURIComponent(word.toLowerCase()) + '&v=' + SAY_V);
+  sayAudio.play().catch(() => {});
 }
 
 function glossFor(raw, box, loc, el) {

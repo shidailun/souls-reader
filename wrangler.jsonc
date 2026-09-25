@@ -31,6 +31,8 @@
     { "binding": "DB", "database_name": "lingnan", "database_id": "8055aca3-d40f-4ab9-86be-503c549bbde3", "remote": true }
   ],
 
+  // Workers AI, for /api/say: a tapped word said aloud (worker/index.js).
+  "ai": { "binding": "AI" },
   "routes": [
     { "pattern": "souls-reader.shidailun.com", "custom_domain": true }
   ]

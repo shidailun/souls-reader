@@ -347,12 +347,85 @@ async function more(req, env) {
   return new Response(null, { status: 204 });
 }
 
+// SAYING A WORD. "All the apps should speak the words" (25 Sep 2026). GET
+// /api/say?w=<word> answers audio/mpeg of the one word, from Workers AI
+// (Deepgram Aura 2, env.AI - the same binding 503 and 506 already use).
+//   - Rejected: the phone's own voice (speechSynthesis), which the book readers
+//     had. On his machine it read out the SSML wrapper - "speak ... prosody ...
+//     percent" - for every word alike, and what a browser does with it is not
+//     ours to fix. One voice from the server sounds the same on every device.
+//   - Rejected: an mp3 per dictionary word made at publish time. Thousands of
+//     files per reader, re-made whenever a dictionary grows, for words most
+//     readers never tap.
+//   - Signed-in only, like any text file: this spends money, a little, per
+//     word never said before.
+//   - Cached at Cloudflare's edge under the word alone (SAY_KEY), so a word
+//     is paid for once per data centre, not once per student. Nobody's data is
+//     in it: it is a word's sound. The page asks with ?v=, so the service
+//     worker keeps each word it has heard for good, and it plays offline.
+//   - Change SAY_SPEAKER or SAY_MODEL and bump SAY_V in the page together, or
+//     old words keep the old voice.
+//   - 40 words a minute per student number, per isolate: a tap a second and
+//     then some. A miss costs one model call; a cache hit costs nothing and
+//     still counts, which is fine.
+const SAY_MODEL = "@cf/deepgram/aura-2-en";
+const SAY_SPEAKER = "luna";
+const SAY_WORD_RE = /^[\p{L}\p{N}'’ -]{1,40}$/u;
+const SAYS_PER_MIN = 40;
+const says = new Map();
+function sayLimited(who) {
+  const now = Date.now();
+  const arr = (says.get(who) || []).filter((t) => now - t < RATE_WINDOW_MS);
+  arr.push(now);
+  says.set(who, arr);
+  if (says.size > 5000) says.clear();
+  return arr.length > SAYS_PER_MIN;
+}
+const SAY_KEY = (w) => `https://say.cache/${SAY_MODEL}/${SAY_SPEAKER}/${encodeURIComponent(w)}`;
+
+async function say(req, env, ctx) {
+  if (req.method !== "GET") return json({ error: "GET only" }, 405);
+  if (!OPEN) return json({ error: "closed" }, 403);
+  const value = readCookie(req);
+  const v = await cookieVerdict(env, value);
+  if (v === "down") return json({ error: "store" }, 503);
+  if (v !== "yes") return json({ error: "sign in" }, 401);
+
+  const w = clean(new URL(req.url).searchParams.get("w") || "", 40).toLowerCase().trim();
+  if (!SAY_WORD_RE.test(w)) return json({ error: "word" }, 400);
+  if (sayLimited(value)) return json({ error: "slow down" }, 429);
+
+  const key = new Request(SAY_KEY(w));
+  let r = await caches.default.match(key);
+  if (!r) {
+    if (!env.AI) return json({ error: "no voice" }, 503);
+    let out;
+    try { out = await env.AI.run(SAY_MODEL, { text: w, speaker: SAY_SPEAKER, encoding: "mp3" }); }
+    catch { return json({ error: "voice" }, 502); }
+    // A stream of mp3 from Aura; some models answer {audio: base64} instead.
+    const body = out && typeof out.audio === "string"
+      ? Uint8Array.from(atob(out.audio), (c) => c.charCodeAt(0))
+      : out;
+    if (!body) return json({ error: "voice" }, 502);
+    const bytes = await new Response(body).arrayBuffer();
+    if (!bytes.byteLength) return json({ error: "voice" }, 502);
+    r = new Response(bytes, {
+      headers: { "Content-Type": "audio/mpeg", "Cache-Control": "public, max-age=31536000" },
+    });
+    ctx.waitUntil(caches.default.put(key, r.clone()));
+  }
+  const res = new Response(r.body, r);
+  res.headers.set("Cache-Control", "private, max-age=31536000, immutable");
+  return res;
+}
+
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const path = new URL(req.url).pathname;
     if (path === "/api/signin") return signin(req, env);
     if (path === "/api/beat") return beat(req, env);
     if (path === "/api/more") return more(req, env);
+    if (path === "/api/say") return say(req, env, ctx);
     if (path.startsWith("/api/")) return json({ error: "not found" }, 404);
     if (isShell(path)) return env.ASSETS.fetch(req);
     if (!OPEN) return json({ error: "closed" }, 403);
